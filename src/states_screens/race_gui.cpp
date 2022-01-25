@@ -1009,10 +1009,45 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
     // TODO: temporary workaround, shouldn't have to use
     // draw2DVertexPrimitiveList to render a simple rectangle
 
-    const float speed =  kart->getSpeed();
+    const float speed = kart->getSpeed();
+    const float nitro_count = kart->getEnergy();
 
     drawRank(kart, offset, min_ratio, meter_width, meter_height, dt);
 
+    // Draw speed in numbers, above the graphical speedometer
+    gui::ScalableFont* font = GUIEngine::getFont();
+    static video::SColor color = video::SColor(255, 255, 255, 255);
+    font->setBlackBorder(true);
+
+    std::ostringstream speed_string;
+    speed_string.setf(std::ios::fixed);
+    speed_string.precision(1);
+
+    std::ostringstream nitro_string;
+    nitro_string.setf(std::ios::fixed);
+    nitro_string.precision(1);
+
+    float speed_kmh = speed * 3.6; // Speed in kilometers per hour
+
+    core::recti digital_speed_pos;
+    digital_speed_pos.UpperLeftCorner = core::vector2di(int(offset.X + 0.0f*meter_width),
+                                                        int(offset.Y - 1.17f*meter_height));
+    digital_speed_pos.LowerRightCorner = core::vector2di(int(offset.X + meter_width),
+                                                         int(offset.Y - 1.15f*meter_height));
+
+    core::recti digital_nitro_pos;
+    digital_nitro_pos.UpperLeftCorner = core::vector2di(int(offset.X + 0.0f*meter_width),
+                                                        int(offset.Y - 1.1f*meter_height));
+    digital_nitro_pos.LowerRightCorner = core::vector2di(int(offset.X + meter_width),
+                                                         int(offset.Y - 1.08f*meter_height));
+
+
+    speed_string << speed << "m/s | " << speed_kmh << "km/h";
+    font->draw(speed_string.str().c_str(), digital_speed_pos, color);
+    nitro_string << "nitro: " << nitro_count;
+    font->draw(nitro_string.str().c_str(), digital_nitro_pos, color);
+
+    font->setBlackBorder(false);
 
     if(speed <=0) return;  // Nothing to do if speed is negative.
 
@@ -1089,31 +1124,6 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
             speed_ratio = 0.125f*i-0.0045f;
             break;
         }
-    }
-
-    // Draw speed in numbers, above the graphical speedometer, if enabled
-    if (UserConfigParams::m_digital_speedometer)
-    {
-        gui::ScalableFont* font = GUIEngine::getFont();
-        static video::SColor color = video::SColor(255, 255, 255, 255);
-        font->setBlackBorder(true);
-
-        std::ostringstream speedOSS;
-        speedOSS.setf(std::ios::fixed);
-        speedOSS.precision(1);
-
-        float speedKM = speed * 3.6; // Speed in kilometers per hour
-
-        core::recti digiPos;
-        digiPos.UpperLeftCorner = core::vector2di(int(offset.X + 0.0f*meter_width),
-                                                  int(offset.Y - 1.17f*meter_height));
-        digiPos.LowerRightCorner = core::vector2di(int(offset.X + meter_width),
-                                                   int(offset.Y - 1.15f*meter_height));
-
-        speedOSS << speed << "m/s | " << speedKM << "km/h";
-        font->draw(speedOSS.str().c_str(), digiPos, color);
-
-        font->setBlackBorder(false);
     }
 
     unsigned int count = computeVerticesForMeter(position, threshold, vertices, vertices_count, 

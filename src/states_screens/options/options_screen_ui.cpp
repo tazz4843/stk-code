@@ -324,10 +324,6 @@ void OptionsScreenUI::init()
     }
     speedrun_timer->setState( UserConfigParams::m_speedrun_mode );
 
-    GUIEngine::CheckBoxWidget* digital_speedometer = getWidget<GUIEngine::CheckBoxWidget>("digital_speedometer");
-    assert( digital_speedometer != NULL );
-    digital_speedometer->setState(UserConfigParams::m_digital_speedometer);
-
     // --- select the right skin in the spinner
     bool currSkinFound = false;
     const std::string& user_skin = UserConfigParams::m_skin_file;
@@ -553,12 +549,6 @@ void OptionsScreenUI::eventCallback(Widget* widget, const std::string& name, con
     else if(name == "custom_camera")
     {
         new CustomCameraSettingsDialog(0.8f, 0.95f);
-    }
-    else if (name == "digital_speedometer")
-    {
-        GUIEngine::CheckBoxWidget* digital_speedometer = getWidget<GUIEngine::CheckBoxWidget>("digital_speedometer");
-        assert( digital_speedometer != NULL );
-        UserConfigParams::m_digital_speedometer = digital_speedometer->getState();
     }
 #endif
 }   // eventCallback
