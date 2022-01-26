@@ -1029,6 +1029,11 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
 
     gui::ScalableFont* stats_font = GUIEngine::getFont();
     static video::SColor color = video::SColor(255, 255, 255, 255);
+    auto* world = World::getWorld();
+    assert(world != NULL);
+    const float current_time = world->getTime();
+    const float time_scale = 1/(current_time - m_last_timestamp);
+    m_last_timestamp = current_time;
 
     const float speed = kart->getSpeed();
     float speed_kmh = speed * 3.6f; // Speed in kilometers per hour
@@ -1039,8 +1044,7 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
     const float x_diff = current_velocity.getX() - m_last_velocity.getX();
     const float y_diff = current_velocity.getY() - m_last_velocity.getY();
     const float z_diff = current_velocity.getZ() - m_last_velocity.getZ();
-    // times 4 is because this is the last 250ms of data
-    const float acceleration = sqrtf(powf(x_diff, 2) + powf(y_diff, 2) + powf(z_diff, 2))*4.0f;
+    const float acceleration = sqrtf(powf(x_diff, 2) + powf(y_diff, 2) + powf(z_diff, 2))*time_scale;
     m_last_velocity = current_velocity;
 
     const dimension2d<u32> actual_screen_size = irr_driver->getActualScreenSize();

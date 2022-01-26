@@ -132,6 +132,8 @@ private:
 
     /** Stores the last velocity of the player. */
     btVector3 m_last_velocity;
+    /** Stores the last timestamp acceleration was calculated at. */
+    float m_last_timestamp;
 
     bool m_is_tutorial;
 
