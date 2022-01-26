@@ -1029,8 +1029,9 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
 
     gui::ScalableFont* stats_font = GUIEngine::getFont();
     static video::SColor color = video::SColor(255, 255, 255, 255);
-    auto* world = World::getWorld();
+    World *world = World::getWorld();
     assert(world != NULL);
+
     const float current_time = world->getTime();
     const float time_scale = 1/(current_time - m_last_timestamp);
     m_last_timestamp = current_time;
