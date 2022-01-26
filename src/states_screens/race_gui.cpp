@@ -1036,8 +1036,11 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
     const float shield_time = kart->getShieldTime();
     const float plunger_block_ticks = kart->getBlockedByPlungerTicks()/100.0f;
     const btVector3 current_velocity = kart->getVelocity();
+    const float x_diff = current_velocity.getX() - m_last_velocity.getX();
+    const float y_diff = current_velocity.getY() - m_last_velocity.getY();
+    const float z_diff = current_velocity.getZ() - m_last_velocity.getZ();
     // times 4 is because this is the last 250ms of data
-    const float acceleration = m_last_velocity.distance(current_velocity)*4;
+    const float acceleration = sqrtf(powf(x_diff, 2) + powf(y_diff, 2) + powf(z_diff, 2))*4.0f;
     m_last_velocity = current_velocity;
 
     const dimension2d<u32> actual_screen_size = irr_driver->getActualScreenSize();
