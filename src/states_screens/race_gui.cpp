@@ -1034,7 +1034,7 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
     float speed_kmh = speed * 3.6f; // Speed in kilometers per hour
     const float nitro_count = kart->getEnergy();
     const float shield_time = kart->getShieldTime();
-    const float plunger_block_ticks = kart->getBlockedByPlungerTicks()/100.0f;
+    const double plunger_block_ticks = kart->getBlockedByPlungerTicks()/100.0;
     const btVector3 current_velocity = kart->getVelocity();
     const float x_diff = current_velocity.getX() - m_last_velocity.getX();
     const float y_diff = current_velocity.getY() - m_last_velocity.getY();
