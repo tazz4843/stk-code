@@ -189,6 +189,9 @@ if(SERVER_ONLY)
     add_definitions(-DNO_IRR_COMPILE_WITH_X11_ -DNO_IRR_COMPILE_WITH_OPENGL_)
 endif()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}-march=native")
+
 if(UNIX OR MINGW)
     if(DEBUG_SYMBOLS)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
