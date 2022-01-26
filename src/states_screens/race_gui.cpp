@@ -1042,9 +1042,9 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
     const float shield_time = kart->getShieldTime();
     const double plunger_block_ticks = kart->getBlockedByPlungerTicks()/100.0;
     const btVector3 current_velocity = kart->getVelocity();
-    const float x_diff = current_velocity.getX() - m_last_velocity.getX();
-    const float y_diff = current_velocity.getY() - m_last_velocity.getY();
-    const float z_diff = current_velocity.getZ() - m_last_velocity.getZ();
+    const float x_diff = m_last_velocity.getX() - current_velocity.getX();
+    const float y_diff = m_last_velocity.getY() - current_velocity.getY();
+    const float z_diff = m_last_velocity.getZ() - current_velocity.getZ();
     const float acceleration = sqrtf(powf(x_diff, 2) + powf(y_diff, 2) + powf(z_diff, 2))*time_scale;
     m_last_velocity = current_velocity;
 
