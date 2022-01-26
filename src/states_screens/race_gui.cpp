@@ -114,6 +114,7 @@ void RaceGUI::initSize()
     // Determine maximum length of the rank/lap text, in order to
     // align those texts properly on the right side of the viewport.
     gui::ScalableFont* font = GUIEngine::getHighresDigitFont();
+    gui::ScalableFont* normal_font = GUIEngine::getFont();
     core::dimension2du area = font->getDimension(L"99:99.999");
     m_timer_width = area.Width;
     m_font_height = area.Height;
@@ -126,6 +127,21 @@ void RaceGUI::initSize()
 
     area = font->getDimension(L"-");
     m_negative_timer_additional_width = area.Width;
+
+    area = normal_font->getDimension(L"speed: 99.9m/s, 999.9km/h");
+    m_speedometer_width = area.Width;
+
+    area = normal_font->getDimension(L"acceleration: 99.9m/s^2");
+    m_accelerometer_width = area.Width;
+
+    area = normal_font->getDimension(L"nitro: 99.9");
+    m_nitro_count_width = area.Width;
+
+    area = normal_font->getDimension(L"shield ticks left: 99.9");
+    m_shield_ticks_width = area.Width;
+
+    area = normal_font->getDimension(L"plunger for another 99.9 ticks");
+    m_plunger_blocked_ticks_width = area.Width;
 
     if (RaceManager::get()->getMinorMode()==RaceManager::MINOR_MODE_FOLLOW_LEADER ||
         RaceManager::get()->isBattleMode()     ||
@@ -1009,45 +1025,90 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
     // TODO: temporary workaround, shouldn't have to use
     // draw2DVertexPrimitiveList to render a simple rectangle
 
-    const float speed = kart->getSpeed();
-    const float nitro_count = kart->getEnergy();
-
     drawRank(kart, offset, min_ratio, meter_width, meter_height, dt);
 
-    // Draw speed in numbers, above the graphical speedometer
-    gui::ScalableFont* font = GUIEngine::getFont();
+    gui::ScalableFont* stats_font = GUIEngine::getFont();
     static video::SColor color = video::SColor(255, 255, 255, 255);
-    font->setBlackBorder(true);
+
+    const float speed = kart->getSpeed();
+    float speed_kmh = speed * 3.6f; // Speed in kilometers per hour
+    const float nitro_count = kart->getEnergy();
+    const float shield_time = kart->getShieldTime();
+    const float plunger_block_ticks = kart->getBlockedByPlungerTicks()/100.0f;
+    const btVector3 current_velocity = kart->getVelocity();
+    // times 4 is because this is the last 250ms of data
+    const float acceleration = m_last_velocity.distance(current_velocity)*4;
+    m_last_velocity = current_velocity;
+
+    const dimension2d<u32> actual_screen_size = irr_driver->getActualScreenSize();
+    const int screen_width = actual_screen_size.Width;
+    const int screen_height = actual_screen_size.Height;
+    int stats_pos = (screen_height*2/100)+m_font_height;
 
     std::ostringstream speed_string;
     speed_string.setf(std::ios::fixed);
     speed_string.precision(1);
+    speed_string << "speed: " << speed << "m/s, " << speed_kmh << "km/h";
+    core::rect<s32> speed_string_pos(
+            screen_width - (10+m_speedometer_width),
+            stats_pos,
+            screen_width,
+            m_font_height);
+    stats_pos += m_font_height;
+
+    std::ostringstream acceleration_string;
+    acceleration_string.setf(std::ios::fixed);
+    acceleration_string.precision(1);
+    acceleration_string << "acceleration: " << acceleration << "m/s^2";
+    core::rect<s32> acceleration_string_pos(
+            screen_width - (10+m_accelerometer_width),
+            stats_pos,
+            screen_width,
+            m_font_height);
+    stats_pos += m_font_height;
 
     std::ostringstream nitro_string;
     nitro_string.setf(std::ios::fixed);
     nitro_string.precision(1);
-
-    float speed_kmh = speed * 3.6; // Speed in kilometers per hour
-
-    core::recti digital_speed_pos;
-    digital_speed_pos.UpperLeftCorner = core::vector2di(int(offset.X + 0.0f*meter_width),
-                                                        int(offset.Y - 1.17f*meter_height));
-    digital_speed_pos.LowerRightCorner = core::vector2di(int(offset.X + meter_width),
-                                                         int(offset.Y - 1.15f*meter_height));
-
-    core::recti digital_nitro_pos;
-    digital_nitro_pos.UpperLeftCorner = core::vector2di(int(offset.X + 0.0f*meter_width),
-                                                        int(offset.Y - 1.1f*meter_height));
-    digital_nitro_pos.LowerRightCorner = core::vector2di(int(offset.X + meter_width),
-                                                         int(offset.Y - 1.08f*meter_height));
-
-
-    speed_string << speed << "m/s | " << speed_kmh << "km/h";
-    font->draw(speed_string.str().c_str(), digital_speed_pos, color);
     nitro_string << "nitro: " << nitro_count;
-    font->draw(nitro_string.str().c_str(), digital_nitro_pos, color);
+    core::rect<s32> nitro_string_pos(
+            screen_width - (10+m_nitro_count_width),
+            stats_pos,
+            screen_width,
+            m_font_height);
+    stats_pos += m_font_height;
 
-    font->setBlackBorder(false);
+    std::ostringstream shield_string;
+    shield_string.setf(std::ios::fixed);
+    shield_string.precision(1);
+    shield_string << "shield ticks left: " << shield_time;
+    core::rect<s32> shield_string_pos(
+            screen_width - (10+m_shield_ticks_width),
+            stats_pos,
+            screen_width,
+            m_font_height);
+    stats_pos += m_font_height;
+
+    std::ostringstream plunger_block_ticks_string;
+    plunger_block_ticks_string.setf(std::ios::fixed);
+    plunger_block_ticks_string.precision(1);
+    plunger_block_ticks_string << "plunger for another " << plunger_block_ticks << " ticks";
+    core::rect<s32> plunger_block_ticks_string_pos(
+            screen_width - (10+m_plunger_blocked_ticks_width),
+            stats_pos,
+            screen_width,
+            m_font_height);
+    stats_pos += m_font_height;
+
+    stats_font->setBlackBorder(true);
+
+    stats_font->draw(speed_string.str().c_str(), speed_string_pos, color);
+    stats_font->draw(acceleration_string.str().c_str(), acceleration_string_pos, color);
+    stats_font->draw(nitro_string.str().c_str(), nitro_string_pos, color);
+    stats_font->draw(shield_string.str().c_str(), shield_string_pos, color);
+    stats_font->draw(plunger_block_ticks_string.str().c_str(), plunger_block_ticks_string_pos, color);
+
+    stats_font->setBlackBorder(false);
 
     if(speed <=0) return;  // Nothing to do if speed is negative.
 
@@ -1295,12 +1356,14 @@ void RaceGUI::drawLap(const AbstractKart* kart,
                             - m_lap_width - 10;
     pos.LowerRightCorner.X  = viewport.LowerRightCorner.X;
 
+    gui::ScalableFont* font = GUIEngine::getHighresDigitFont();
+    static video::SColor color = video::SColor(255, 255, 255, 255);
+
     // Draw CTF / soccer scores with red score - blue score (score limit)
     CaptureTheFlag* ctf = dynamic_cast<CaptureTheFlag*>(World::getWorld());
     SoccerWorld* sw = dynamic_cast<SoccerWorld*>(World::getWorld());
     FreeForAll* ffa = dynamic_cast<FreeForAll*>(World::getWorld());
 
-    static video::SColor color = video::SColor(255, 255, 255, 255);
     int hit_capture_limit =
         (RaceManager::get()->getHitCaptureLimit() != std::numeric_limits<int>::max()
          && RaceManager::get()->getHitCaptureLimit() != 0)
@@ -1319,7 +1382,6 @@ void RaceGUI::drawLap(const AbstractKart* kart,
         draw2DImage(m_champion, indicator_pos, source_rect,
             NULL, NULL, true);
 
-        gui::ScalableFont* font = GUIEngine::getHighresDigitFont();
         font->setBlackBorder(true);
         pos.UpperLeftCorner.X += 30;
         font->draw(StringUtils::toWString(hit_capture_limit).c_str(), pos, color);
@@ -1332,7 +1394,6 @@ void RaceGUI::drawLap(const AbstractKart* kart,
     {
         int red_score = ctf ? ctf->getRedScore() : sw->getScore(KART_TEAM_RED);
         int blue_score = ctf ? ctf->getBlueScore() : sw->getScore(KART_TEAM_BLUE);
-        gui::ScalableFont* font = GUIEngine::getHighresDigitFont();
         font->setBlackBorder(true);
         font->setScale(1.0f);
         core::dimension2du d;
@@ -1409,11 +1470,9 @@ void RaceGUI::drawLap(const AbstractKart* kart,
     else
         out << lap;
 
-    gui::ScalableFont* font = GUIEngine::getHighresDigitFont();
     font->setBlackBorder(true);
     font->draw(out.str().c_str(), pos, color);
     font->setBlackBorder(false);
     font->setScale(1.0f);
 #endif
 } // drawLap
-

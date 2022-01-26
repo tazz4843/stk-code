@@ -85,6 +85,21 @@ private:
 
     int              m_negative_timer_additional_width;
 
+    /** Maximum string length for the digital speedometer */
+    int              m_speedometer_width;
+
+    /** Maximum string length for the digital accelerometer */
+    int              m_accelerometer_width;
+
+    /** Maximum string length for the digital nitro counter */
+    int              m_nitro_count_width;
+
+    /** Maximum string length for the digital shield ticks counter */
+    int              m_shield_ticks_width;
+
+    /** Maximum string length for the digital plunger block ticks counter */
+    int              m_plunger_blocked_ticks_width;
+
     /** Height of the digit font. */
     int              m_font_height;
 
@@ -114,6 +129,9 @@ private:
 
     /** Stores the previous rank for each kart. Used for the rank animation. */
     std::vector<int> m_last_ranks;
+
+    /** Stores the last velocity of the player. */
+    btVector3 m_last_velocity;
 
     bool m_is_tutorial;
 
