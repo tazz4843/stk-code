@@ -88,8 +88,14 @@ private:
     /** Maximum string length for the digital speedometer */
     int              m_speedometer_width;
 
+    /** Maximum string length for the peak speed counter */
+    int              m_peak_speed_width;
+
     /** Maximum string length for the digital accelerometer */
     int              m_accelerometer_width;
+
+    /** Maximum string length for the peak acceleration counter */
+    int              m_peak_accel_width;
 
     /** Maximum string length for the digital nitro counter */
     int              m_nitro_count_width;
@@ -134,6 +140,10 @@ private:
     btVector3 m_last_velocity;
     /** Stores the last timestamp acceleration was calculated at. */
     float m_last_timestamp;
+    /** Stores the peak acceleration this entire race. */
+    float m_peak_acceleration;
+    /** Stores the peak speed this entire race. */
+    float m_peak_speed;
 
     bool m_is_tutorial;
 
