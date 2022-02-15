@@ -108,6 +108,8 @@ private:
 
     /** Height of the digit font. */
     int              m_font_height;
+    /** Height of the small font. */
+    int              m_small_font_height;
 
     /** Icon textures (stored as variables to not look up
         their location on every frame) */

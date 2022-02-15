@@ -130,6 +130,7 @@ void RaceGUI::initSize()
 
     area = normal_font->getDimension(L"speed: 99.9m/s, 999.9km/h");
     m_speedometer_width = area.Width;
+    m_small_font_height = area.Height;
 
     area = normal_font->getDimension(L"peak speed: 99.9m/s, 999.9km/h");
     m_peak_speed_width = area.Width;
@@ -1066,7 +1067,7 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
     const dimension2d<u32> actual_screen_size = irr_driver->getActualScreenSize();
     const int screen_width = actual_screen_size.Width;
     const int screen_height = actual_screen_size.Height;
-    int stats_pos = (screen_height*2/100)+m_font_height;
+    int stats_pos = (screen_height*2/100)+(m_font_height*3);
 
     std::ostringstream speed_string;
     speed_string.setf(std::ios::fixed);
@@ -1076,8 +1077,8 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
             screen_width - (10+m_speedometer_width),
             stats_pos,
             screen_width,
-            m_font_height);
-    stats_pos += m_font_height;
+            m_small_font_height);
+    stats_pos += m_small_font_height;
 
     std::ostringstream peak_speed_string;
     peak_speed_string.setf(std::ios::fixed);
@@ -1087,8 +1088,8 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
             screen_width - (10+m_peak_speed_width),
             stats_pos,
             screen_width,
-            m_font_height);
-    stats_pos += m_font_height;
+            m_small_font_height);
+    stats_pos += m_small_font_height;
 
     std::ostringstream acceleration_string;
     acceleration_string.setf(std::ios::fixed);
@@ -1098,8 +1099,8 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
             screen_width - (10+m_accelerometer_width),
             stats_pos,
             screen_width,
-            m_font_height);
-    stats_pos += m_font_height;
+            m_small_font_height);
+    stats_pos += m_small_font_height;
 
     std::ostringstream peak_accel_string;
     peak_accel_string.setf(std::ios::fixed);
@@ -1109,8 +1110,8 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
             screen_width - (10+m_peak_accel_width),
             stats_pos,
             screen_width,
-            m_font_height);
-    stats_pos += m_font_height;
+            m_small_font_height);
+    stats_pos += m_small_font_height;
 
     std::ostringstream nitro_string;
     nitro_string.setf(std::ios::fixed);
@@ -1120,8 +1121,8 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
             screen_width - (10+m_nitro_count_width),
             stats_pos,
             screen_width,
-            m_font_height);
-    stats_pos += m_font_height;
+            m_small_font_height);
+    stats_pos += m_small_font_height;
 
     std::ostringstream shield_string;
     shield_string.setf(std::ios::fixed);
@@ -1131,8 +1132,8 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
             screen_width - (10+m_shield_ticks_width),
             stats_pos,
             screen_width,
-            m_font_height);
-    stats_pos += m_font_height;
+            m_small_font_height);
+    stats_pos += m_small_font_height;
 
     std::ostringstream plunger_block_ticks_string;
     plunger_block_ticks_string.setf(std::ios::fixed);
@@ -1142,8 +1143,8 @@ void RaceGUI::drawSpeedEnergyRank(const AbstractKart* kart,
             screen_width - (10+m_plunger_blocked_ticks_width),
             stats_pos,
             screen_width,
-            m_font_height);
-    stats_pos += m_font_height;
+            m_small_font_height);
+    stats_pos += m_small_font_height;
 
     stats_font->setBlackBorder(true);
 
