@@ -26,6 +26,7 @@
 #include "guiengine/engine.hpp"
 #include <ge_main.hpp>
 #include <ge_gl_utils.hpp>
+#include <ge_vulkan_features.hpp>
 
 using namespace GE;
 bool CentralVideoSettings::m_supports_sp = true;
@@ -74,6 +75,11 @@ void CentralVideoSettings::init()
             GE::getGEConfig()->m_disable_npot_texture =
                 GraphicsRestrictions::isDisabled(
                 GraphicsRestrictions::GR_NPOT_TEXTURES);
+            if (GE::getDriver()->getDriverType() == video::EDT_VULKAN)
+            {
+                hasTextureCompression = GEVulkanFeatures::supportsS3TCBC3() ||
+                    GEVulkanFeatures::supportsASTC4x4();
+            }
             return;
         }
 
@@ -442,7 +448,12 @@ bool CentralVideoSettings::isShadowEnabled() const
 
 bool CentralVideoSettings::isTextureCompressionEnabled() const
 {
+#ifdef MOBILE_STK
+    // MOBILE_STK currently doesn't handle libsquish in SP
+    return false;
+#else
     return supportsTextureCompression() && UserConfigParams::m_texture_compression;
+#endif
 }
 
 bool CentralVideoSettings::isDeferredEnabled() const

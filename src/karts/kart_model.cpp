@@ -31,7 +31,6 @@
 #include "graphics/material.hpp"
 #include "graphics/material_manager.hpp"
 #include "graphics/mesh_tools.hpp"
-#include "graphics/sp/sp_animation.hpp"
 #include "graphics/sp/sp_mesh.hpp"
 #include "graphics/sp/sp_mesh_buffer.hpp"
 #include "graphics/sp/sp_mesh_node.hpp"
@@ -48,6 +47,8 @@
 
 #include "IMeshManipulator.h"
 #include <algorithm>
+#include <ge_animation.hpp>
+#include <ge_spm.hpp>
 
 #define SKELETON_DEBUG 0
 
@@ -1295,11 +1296,21 @@ void KartModel::initInverseBoneMatrices()
             m_model_filename.c_str());
         striaght_frame = 0.0f;
     }
+    std::vector<GE::Armature> armatures;
+
+#ifndef SERVER_ONLY
     using namespace SP;
     SPMesh* spm = dynamic_cast<SPMesh*>(m_mesh);
+    GE::GESPM* ge_spm = dynamic_cast<GE::GESPM*>(m_mesh);
     if (spm)
+        armatures = spm->getArmatures();
+    else if (ge_spm)
+        armatures = ge_spm->getArmatures();
+#endif
+
+    if (!armatures.empty())
     {
-        for (Armature& arm : spm->getArmatures())
+        for (GE::Armature& arm : armatures)
         {
             arm.getInterpolatedMatrices(striaght_frame);
             for (auto& p : arm.m_world_matrices)
@@ -1328,6 +1339,8 @@ void KartModel::initInverseBoneMatrices()
             node->setCurrentFrame(striaght_frame);
             node->OnAnimate(0);
             scene::IBoneSceneNode* bone = node->getJointNode(i);
+            if (!bone)
+                continue;
             bone->updateAbsolutePosition();
             node->setCurrentFrame(striaght_frame);
             node->OnAnimate(0);
@@ -1352,8 +1365,11 @@ void KartModel::initInverseBoneMatrices()
 const core::matrix4& KartModel::getInverseBoneMatrix
                                            (const std::string& bone_name) const
 {
+    // Remove after GESPM animation is done
+    static core::matrix4 unused;
     assert(m_version >= 3);
     auto ret = m_inverse_bone_matrices.find(bone_name);
-    assert(ret != m_inverse_bone_matrices.end());
+    if (ret == m_inverse_bone_matrices.end())
+        return unused;
     return ret->second;
 }   // getInverseBoneMatrix

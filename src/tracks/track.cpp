@@ -79,7 +79,7 @@
 #include "tracks/track_object_manager.hpp"
 #include "utils/constants.hpp"
 #include "utils/log.hpp"
-#include "utils/mini_glm.hpp"
+#include "mini_glm.hpp"
 #include "utils/string_utils.hpp"
 #include "utils/translation.hpp"
 
@@ -176,6 +176,7 @@ Track::Track(const std::string &filename)
     m_minimap_y_scale       = 1.0f;
     m_force_disable_fog     = false;
     m_startup_run           = false;
+    m_music_idx             = 0;
     m_red_flag = m_blue_flag =
         btTransform(btQuaternion(0.0f, 0.0f, 0.0f, 1.0f));
     m_default_number_of_laps = 3;
@@ -189,6 +190,11 @@ Track::Track(const std::string &filename)
 /** Destructor, removes quad data structures etc. */
 Track::~Track()
 {
+#ifndef SERVER_ONLY
+    if (GE::getDriver()->getDriverType() == video::EDT_VULKAN)
+        GE::getGEConfig()->m_ondemand_load_texture_paths.erase(m_screenshot);
+#endif
+
     // Note that the music information in m_music is globally managed
     // by the music_manager, and is freed there. So no need to free it
     // here (esp. since various track might share the same music).
@@ -419,6 +425,13 @@ void Track::cleanup()
     for(unsigned int i=0; i<m_sky_textures.size(); i++)
     {
         video::ITexture* tex = (video::ITexture*)m_sky_textures[i];
+#ifndef SERVER_ONLY
+        if (GE::getDriver()->getDriverType() == video::EDT_VULKAN)
+        {
+            std::string fullpath = tex->getFullPath().c_str();
+            GE::getGEConfig()->m_ondemand_load_texture_paths.erase(fullpath);
+        }
+#endif
         tex->drop();
         if (tex->getReferenceCount() == 1)
             irr_driver->removeTexture(tex);
@@ -613,6 +626,14 @@ void Track::loadTrackInfo()
     if (m_screenshot.length() > 0)
     {
         m_screenshot = m_root+m_screenshot;
+#ifndef SERVER_ONLY
+        if (GE::getDriver()->getDriverType() == video::EDT_VULKAN)
+        {
+            m_screenshot = file_manager->getFileSystem()
+                ->getAbsolutePath(m_screenshot.c_str()).c_str();
+            GE::getGEConfig()->m_ondemand_load_texture_paths.insert(m_screenshot);
+        }
+#endif
     }
     delete root;
 
@@ -709,6 +730,8 @@ void Track::getMusicInformation(std::vector<std::string>&       filenames,
             "Music information for track '%s' replaced by default music.\n",
             m_name.c_str());
     }
+    if (!m_music.empty())
+        m_music_idx = rand() % m_music.size();
 
 }   // getMusicInformation
 
@@ -719,7 +742,7 @@ void Track::startMusic() const
 {
     // In case that the music wasn't found (a warning was already printed)
     if(m_music.size()>0)
-        music_manager->startMusic(m_music[rand()% m_music.size()], false);
+        music_manager->startMusic(m_music[m_music_idx], false);
     else
         music_manager->clearCurrentMusic();
 }   // startMusic
@@ -1141,6 +1164,32 @@ void Track::convertTrackToBullet(scene::ISceneNode *node)
                     }   // for j
                 } // for matrix_index
             }
+            else if (mb->getVertexType() == video::EVT_SKINNED_MESH)
+            {
+                video::S3DVertexSkinnedMesh* mbVertices = (video::S3DVertexSkinnedMesh*)mb->getVertices();
+                for (unsigned int matrix_index = 0; matrix_index < matrices.size(); matrix_index++)
+                {
+                    for (unsigned int j = 0; j < mb->getIndexCount(); j += 3)
+                    {
+                        for (unsigned int k = 0; k < 3; k++)
+                        {
+                            int indx = mbIndices[j + k];
+                            core::vector3df v = mbVertices[indx].m_position;
+                            matrices[matrix_index].transformVect(v);
+                            vertices[k] = v;
+                            normals[k] = MiniGLM::decompressVector3(mbVertices[indx].m_normal);
+                        }   // for k
+
+                        if (tmesh)
+                        {
+                            tmesh->addTriangle(vertices[0], vertices[1],
+                                vertices[2], normals[0],
+                                normals[1], normals[2],
+                                material);
+                        }
+                    }   // for j
+                } // for matrix_index
+            }
         }
     }   // for i<getMeshBufferCount
 
@@ -1216,13 +1265,18 @@ bool Track::loadMainTrack(const XMLNode &root)
                    "Main track model '%s' in '%s' not found, aborting.\n",
                    track_node->getName().c_str(), model_name.c_str());
     }
+    scene::IAnimatedMesh* an_mesh = dynamic_cast<scene::IAnimatedMesh*>(mesh);
+    bool ge_spm = false;
+    if (an_mesh && an_mesh->getMeshType() == scene::EAMT_SPM)
+        ge_spm = true;
 
     scene::ISceneNode* scene_node = NULL;
     scene::IMesh* tangent_mesh = NULL;
 #ifdef SERVER_ONLY
     if (false)
 #else
-    if (m_version < 7 && !CVS->isGLSL() && !GUIEngine::isNoGraphics())
+    if (m_version < 7 && !CVS->isGLSL() && !GUIEngine::isNoGraphics() &&
+        !ge_spm)
 #endif
     {
         // The mesh as returned does not have all mesh buffers with the same
@@ -1747,11 +1801,8 @@ static void recursiveUpdatePosition(scene::ISceneNode *node)
 {
     node->updateAbsolutePosition();
 
-    scene::ISceneNodeList::ConstIterator it = node->getChildren().begin();
-    for (; it != node->getChildren().end(); ++it)
-    {
-        recursiveUpdatePosition(*it);
-    }
+    for (unsigned i = 0; i < node->getChildren().size(); i++)
+        recursiveUpdatePosition(node->getChildren()[i]);
 }   // recursiveUpdatePosition
 
 // ----------------------------------------------------------------------------
@@ -2446,6 +2497,19 @@ void Track::handleSky(const XMLNode &xml_node, const std::string &filename)
             else
 #endif   // !SERVER_ONLY
             {
+#ifndef SERVER_ONLY
+                if (GE::getDriver()->getDriverType() == video::EDT_VULKAN)
+                {
+                    io::path p = file_manager->searchTexture(v[i]).c_str();
+                    if (!p.empty())
+                    {
+                        io::path fullpath = file_manager->getFileSystem()
+                            ->getAbsolutePath(p).c_str();
+                        GE::getGEConfig()->m_ondemand_load_texture_paths.
+                            insert(fullpath.c_str());
+                    }
+                }
+#endif
                 video::ITexture* t = irr_driver->getTexture(v[i]);
                 if (t)
                 {
@@ -2965,6 +3029,7 @@ video::IImage* Track::getSkyTexture(std::string path) const
         path = file_manager->getFileSystem()->getAbsolutePath(relative_path)
             .c_str();
     }
-    return GE::getResizedImage(path);
+    return GE::getResizedImage(path, irr_driver->getVideoDriver()
+        ->getDriverAttributes().getAttributeAsDimension2d("MAX_TEXTURE_SIZE"));
 #endif
 }   // getSkyTexture

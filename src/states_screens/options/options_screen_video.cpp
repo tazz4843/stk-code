@@ -41,6 +41,13 @@
 #include "utils/string_utils.hpp"
 #include "utils/translation.hpp"
 
+#ifndef SERVER_ONLY
+#include <ge_main.hpp>
+#include <ge_vulkan_driver.hpp>
+#include <ge_vulkan_texture_descriptor.hpp>
+#endif
+
+
 #include <iostream>
 #include <sstream>
 
@@ -151,26 +158,37 @@ int OptionsScreenVideo::getImageQuality()
 // --------------------------------------------------------------------------------------------
 void OptionsScreenVideo::setImageQuality(int quality)
 {
+#ifndef SERVER_ONLY
+    GE::GEVulkanTextureDescriptor* td = NULL;
+    if (GE::getVKDriver())
+        td = GE::getVKDriver()->getMeshTextureDescriptor();
     switch (quality)
     {
         case 0:
             UserConfigParams::m_anisotropic = 2;
             UserConfigParams::m_high_definition_textures = 0x02;
             UserConfigParams::m_hq_mipmap = false;
+            if (td)
+                td->setSamplerUse(GE::GVS_3D_MESH_MIPMAP_2);
             break;
         case 1:
             UserConfigParams::m_anisotropic = 4;
             UserConfigParams::m_high_definition_textures = 0x03;
             UserConfigParams::m_hq_mipmap = false;
+            if (td)
+                td->setSamplerUse(GE::GVS_3D_MESH_MIPMAP_4);
             break;
         case 2:
             UserConfigParams::m_anisotropic = 16;
             UserConfigParams::m_high_definition_textures = 0x03;
             UserConfigParams::m_hq_mipmap = true;
+            if (td)
+                td->setSamplerUse(GE::GVS_3D_MESH_MIPMAP_16);
             break;
         default:
             assert(false);
     }
+#endif
 }   // setImageQuality
 
 // --------------------------------------------------------------------------------------------
@@ -326,8 +344,8 @@ void OptionsScreenVideo::init()
             r.fullscreen = true;
             m_resolutions.push_back(r);
 
-            if (r.width  == UserConfigParams::m_width &&
-                r.height == UserConfigParams::m_height)
+            if (r.width  == UserConfigParams::m_real_width &&
+                r.height == UserConfigParams::m_real_height)
             {
                 found_config_res = true;
             }
@@ -344,8 +362,8 @@ void OptionsScreenVideo::init()
 
         if (!found_config_res)
         {
-            r.width  = UserConfigParams::m_width;
-            r.height = UserConfigParams::m_height;
+            r.width  = UserConfigParams::m_real_width;
+            r.height = UserConfigParams::m_real_height;
             r.fullscreen = false;
             m_resolutions.push_back(r);
 
@@ -418,8 +436,8 @@ void OptionsScreenVideo::init()
 
     // ---- select current resolution every time
     char searching_for[32];
-    snprintf(searching_for, 32, "%ix%i", (int)UserConfigParams::m_width,
-                                         (int)UserConfigParams::m_height);
+    snprintf(searching_for, 32, "%ix%i", (int)UserConfigParams::m_real_width,
+                                         (int)UserConfigParams::m_real_height);
 
 
     if (!res->setSelection(searching_for, PLAYER_ID_GAME_MASTER,
@@ -442,11 +460,13 @@ void OptionsScreenVideo::init()
     res->setActive(!in_game);
     full->setActive(!in_game);
     applyBtn->setActive(!in_game);
-    gfx->setActive(!in_game);
-    getWidget<ButtonWidget>("custom")->setActive(!in_game);
+#ifndef SERVER_ONLY
+    gfx->setActive(!in_game && CVS->isGLSL());
+    getWidget<ButtonWidget>("custom")->setActive(!in_game || !CVS->isGLSL());
     if (getWidget<SpinnerWidget>("scale_rtts")->isActivated())
         getWidget<SpinnerWidget>("scale_rtts")->setActive(!in_game);
-    
+#endif
+
 #if defined(MOBILE_STK) || defined(__SWITCH__)
     applyBtn->setVisible(false);
     full->setVisible(false);
@@ -529,14 +549,16 @@ void OptionsScreenVideo::updateGfxSlider()
         gfx->setCustomText( _("Custom") );
     }
 
+#ifndef SERVER_ONLY
     // Enable the blur slider if the modern renderer is used
     getWidget<GUIEngine::SpinnerWidget>("blur_level")->
-        setActive(UserConfigParams::m_dynamic_lights);
+        setActive(UserConfigParams::m_dynamic_lights && CVS->isGLSL());
     // Same with Render resolution slider
     getWidget<GUIEngine::SpinnerWidget>("scale_rtts")->
-        setActive(UserConfigParams::m_dynamic_lights);
+        setActive(UserConfigParams::m_dynamic_lights && CVS->isGLSL());
 
     updateTooltip();
+#endif
 } // updateGfxSlider
 
 // --------------------------------------------------------------------------------------------
