@@ -5,6 +5,9 @@
 #include "ge_vulkan_features.hpp"
 
 #include <algorithm>
+#include <stdexcept>
+
+#include "mini_glm.hpp"
 
 namespace GE
 {
@@ -32,7 +35,7 @@ void GESPMBuffer::createVertexIndexBuffer()
     VkBuffer staging_buffer = VK_NULL_HANDLE;
     VmaAllocation staging_memory = VK_NULL_HANDLE;
     VmaAllocationCreateInfo staging_buffer_create_info = {};
-    staging_buffer_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+    staging_buffer_create_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
     staging_buffer_create_info.flags =
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     staging_buffer_create_info.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
@@ -77,7 +80,7 @@ void GESPMBuffer::createVertexIndexBuffer()
     vmaFlushAllocation(vk->getVmaAllocator(), staging_memory, 0, total_size);
 
     VmaAllocationCreateInfo local_create_info = {};
-    local_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+    local_create_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     if (!vk->createBuffer(total_size,
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
         VK_BUFFER_USAGE_TRANSFER_DST_BIT, local_create_info, m_buffer,
@@ -99,5 +102,18 @@ void GESPMBuffer::destroyVertexIndexBuffer()
     m_buffer = VK_NULL_HANDLE;
     m_memory = VK_NULL_HANDLE;
 }   // destroyVertexIndexBuffer
+
+// ----------------------------------------------------------------------------
+void GESPMBuffer::setNormal(u32 i, const core::vector3df& normal)
+{
+    m_vertices[i].m_normal = MiniGLM::compressVector3(normal);
+}   // setNormal
+
+// ----------------------------------------------------------------------------
+void GESPMBuffer::setTCoords(u32 i, const core::vector2df& tcoords)
+{
+    m_vertices[i].m_all_uvs[0] = MiniGLM::toFloat16(tcoords.X);
+    m_vertices[i].m_all_uvs[1] = MiniGLM::toFloat16(tcoords.Y);
+}   // setTCoords
 
 }

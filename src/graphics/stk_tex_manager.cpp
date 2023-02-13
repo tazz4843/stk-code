@@ -32,6 +32,8 @@
 #include <ge_texture.hpp>
 #endif
 
+#include <IFileSystem.h>
+
 // ----------------------------------------------------------------------------
 STKTexManager::~STKTexManager()
 {
@@ -39,7 +41,7 @@ STKTexManager::~STKTexManager()
     GE::GEVulkanDriver* gevd = GE::getVKDriver();
     if (gevd)
     {
-        gevd->waitIdle(/*flush_command_loader*/true);
+        gevd->waitIdle(/*flush_command_loader*/false);
         gevd->setDisableWaitIdle(true);
     }
 #endif

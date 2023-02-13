@@ -25,7 +25,6 @@
 #include "config/stk_config.hpp"
 #include "graphics/irr_driver.hpp"
 #include "graphics/lod_node.hpp"
-#include "graphics/render_info.hpp"
 #include "guiengine/engine.hpp"
 #include "guiengine/scalable_font.hpp"
 #include "guiengine/widgets/button_widget.hpp"
@@ -45,12 +44,15 @@
 #include "utils/string_utils.hpp"
 #include "utils/translation.hpp"
 
+#include <ge_render_info.hpp>
+
 #include <ICameraSceneNode.h>
 #include <IGUIEnvironment.h>
 #include <IGUIImage.h>
 #include <ILightSceneNode.h>
 #include <IMeshSceneNode.h>
 #include <ISceneManager.h>
+#include <IVideoDriver.h>
 #include <SColor.h>
 
 #include <iostream>
@@ -345,7 +347,7 @@ void GrandPrixWin::setKarts(const std::pair<std::string, float> idents_arg[3])
         const KartProperties* kp = kart_properties_manager->getKart(idents[i].first);
         if (kp == NULL) continue;
 
-        KartModel* kart_model = kp->getKartModelCopy(std::make_shared<RenderInfo>(idents[i].second));
+        KartModel* kart_model = kp->getKartModelCopy(std::make_shared<GE::GERenderInfo>(idents[i].second));
         m_all_kart_models.push_back(kart_model);
         scene::ISceneNode* kart_main_node = kart_model->attachModel(true, false);
         LODNode* lnode = dynamic_cast<LODNode*>(kart_main_node);

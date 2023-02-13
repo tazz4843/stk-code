@@ -422,6 +422,11 @@ namespace UserConfigParams
             PARAM_DEFAULT(  FloatUserConfigParam(0.5f, "music_volume",
             &m_audio_group, "Music volume from 0.0 to 1.0") );
 
+    PARAM_PREFIX IntUserConfigParam          m_volume_denominator
+            PARAM_DEFAULT(  IntUserConfigParam(10, "volume_denominator",
+                            &m_audio_group,
+                            "Number of steps for volume adjustment") );
+
     // ---- Race setup
     PARAM_PREFIX GroupUserConfigParam        m_race_setup_group
         PARAM_DEFAULT( GroupUserConfigParam("RaceSetup",
@@ -712,15 +717,29 @@ namespace UserConfigParams
         PARAM_DEFAULT(  FloatUserConfigParam(3, "font_size",
         &m_video_group, "The size of fonts. 0 is the smallest and 6 is the biggest") );
 
-#if defined(_IRR_COMPILE_WITH_DIRECT3D_9_) && defined(_M_ARM64)
+#if defined(_IRR_COMPILE_WITH_DIRECT3D_9_) && defined(_M_ARM)
     PARAM_PREFIX StringUserConfigParam         m_render_driver
         PARAM_DEFAULT(  StringUserConfigParam("directx9", "render_driver",
-        &m_video_group, "Render video driver to use, at the moment gl or directx9 is supported.") );
+        &m_video_group, "Render video driver to use, at the moment gl, vulkan or directx9 is supported.") );
 #else
     PARAM_PREFIX StringUserConfigParam         m_render_driver
         PARAM_DEFAULT(  StringUserConfigParam("gl", "render_driver",
-        &m_video_group, "Render video driver to use, at the moment gl or directx9 is supported.") );
+        &m_video_group, "Render video driver to use, at the moment gl, vulkan or directx9 is supported.") );
 #endif
+
+#if defined(MOBILE_STK)
+    PARAM_PREFIX BoolUserConfigParam        m_vulkan_fullscreen_desktop
+        PARAM_DEFAULT(BoolUserConfigParam(false, "vulkan_fullscreen_desktop",
+        &m_video_group, "Use SDL_WINDOW_FULLSCREEN_DESKTOP for vulkan device"));
+#else
+    PARAM_PREFIX BoolUserConfigParam        m_vulkan_fullscreen_desktop
+        PARAM_DEFAULT(BoolUserConfigParam(true, "vulkan_fullscreen_desktop",
+        &m_video_group, "Use SDL_WINDOW_FULLSCREEN_DESKTOP for vulkan device"));
+#endif
+
+    PARAM_PREFIX BoolUserConfigParam        m_non_ge_fullscreen_desktop
+        PARAM_DEFAULT(BoolUserConfigParam(false, "non_ge_fullscreen_desktop",
+        &m_video_group, "Use SDL_WINDOW_FULLSCREEN_DESKTOP for non-ge device"));
 
     // ---- Recording
     PARAM_PREFIX GroupUserConfigParam        m_recording_group

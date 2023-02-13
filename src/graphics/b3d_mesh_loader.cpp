@@ -105,10 +105,10 @@ scene::IAnimatedMesh* B3DMeshLoader::createMesh(io::IReadFile* f)
         {
             SP::SPMeshBuffer* spbuf = spm->getSPMeshBuffer(i);
             GE::GESPMBuffer* gebuf = new GE::GESPMBuffer();
-            gebuf->m_has_skinning = !spm->isStatic();
-            ge_spm->m_buffer.push_back(gebuf);
-            std::swap(gebuf->m_vertices, spbuf->getVerticesRef());
-            std::swap(gebuf->m_indices, spbuf->getIndicesRef());
+            gebuf->setHasSkinning(!spm->isStatic());
+            ge_spm->addMeshBuffer(gebuf);
+            std::swap(gebuf->getVerticesVector(), spbuf->getVerticesRef());
+            std::swap(gebuf->getIndicesVector(), spbuf->getIndicesRef());
             Material* stk_material = spbuf->getSTKMaterial(0);
             stk_material->setMaterialProperties(&gebuf->getMaterial(), gebuf);
             gebuf->getMaterial().TextureLayer[0].Texture =
@@ -142,13 +142,20 @@ SP::SPMesh* B3DMeshLoader::toSPM(scene::CSkinnedMesh* mesh)
             wi[b].push_back(core::array<JointInfluence>());
 	}
 
-    const bool skinned_mesh = !mesh->RootJoints.empty() &&
+    bool skinned_mesh = !mesh->RootJoints.empty() &&
         mesh->getFrameCount() > 0;
+    unsigned idx = 0;
     if (skinned_mesh)
     {
-        unsigned idx = 0;
         for (unsigned i = 0; i < mesh->RootJoints.size(); i++)
             computeWeightInfluence(mesh->RootJoints[i], idx, wi);
+    }
+    // Some b3d models has incorrect animation data, remove it and treat them
+    // as static mesh
+    if (idx == 0)
+        skinned_mesh = false;
+    if (skinned_mesh)
+    {
         spm->m_total_joints = idx;
         spm->m_joint_using = idx;
         spm->m_bind_frame = m_straight_frame;
@@ -1344,6 +1351,25 @@ void B3DMeshLoader::loadTextures(SB3dMaterial& material, scene::IMeshBuffer* mb)
                 full_path = fs->getFileDir(B3DFile->getFileName()) +"/"+ fs->getFileBasename(B3dTexture->TextureName);
             else
                 full_path = fs->getFileBasename(B3dTexture->TextureName);
+
+#ifndef SERVER_ONLY
+            std::function<void(irr::video::IImage*)> image_mani;
+            if (!CVS->isGLSL())
+            {
+                Material* m = material_manager->getMaterial(B3dTexture->TextureName.c_str(),
+                    /*is_full_path*/false,
+                    /*make_permanent*/false,
+                    /*complain_if_not_found*/true,
+                    /*strip_path*/true, /*install*/true,
+                    /*create_if_not_found*/false);
+                if (m)
+                {
+                    image_mani = m->getMaskImageMani();
+                    if (image_mani)
+                        STKTexManager::getInstance()->getTexture(full_path.c_str(), image_mani);
+                }
+            }
+#endif
 
 #ifndef SERVER_ONLY
             bool convert_spm = CVS->isGLSL() || GE::getVKDriver() != NULL;

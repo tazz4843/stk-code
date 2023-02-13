@@ -61,7 +61,7 @@ private:
      * than once. */
     std::vector<int>         m_selected_karts;
 
-    /** Contains a flag for each kart indicating wether it is available on
+    /** Contains a flag for each kart indicating whether it is available on
      *  all clients or not. */
     std::vector<bool>        m_kart_available;
 
@@ -111,6 +111,14 @@ public:
     // ------------------------------------------------------------------------
     /** Get a characteristic that holds the values for a kart type. */
     const AbstractCharacteristic* getKartTypeCharacteristic(const std::string &type, const std::string &name) const;
+    // ------------------------------------------------------------------------
+    const std::string& getDefaultKartType() const   { return m_kart_types[0]; }
+    // ------------------------------------------------------------------------
+    bool hasKartTypeCharacteristic(const std::string& type) const
+    {
+        return m_kart_type_characteristics.find(type) !=
+            m_kart_type_characteristics.end();
+    }
     // ------------------------------------------------------------------------
     /** Get a characteristic that holds the values for a player difficulty. */
     const AbstractCharacteristic* getPlayerCharacteristic(const std::string &type) const;

@@ -32,7 +32,21 @@
 #include <string>
 #include <vector>
 
-#include <irrlicht.h>
+#include <irrString.h>
+#include <rect.h>
+#include <SColor.h>
+
+namespace irr
+{
+    namespace scene
+    {
+        class IMesh; class ISceneNode;
+    }
+    namespace video
+    {
+        class IImage; class ITexture;
+    }
+}
 
 using namespace irr;
 
@@ -194,6 +208,9 @@ private:
     scene::ISceneNode  *m_sun;
     /** Used to collect the triangles for the bullet mesh. */
     TriangleMesh*            m_track_mesh;
+    /** Used to collect the triangles for the height map mesh used for
+     *  particle rendering. */
+    TriangleMesh*            m_height_map_mesh;
     /** Used to collect the triangles which do not have a physical
      *  representation, but are needed for some raycast effects. An
      *  example is a water surface: the karts ignore this (i.e.
@@ -446,7 +463,8 @@ public:
     void               removeCachedData  ();
     void               startMusic        () const;
 
-    void               createPhysicsModel(unsigned int main_track_count);
+    void               createPhysicsModel(unsigned int main_track_count,
+                                          bool for_height_map);
     void               updateGraphics(float dt);
     void               update(int ticks);
     void               reset();

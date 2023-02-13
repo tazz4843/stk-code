@@ -25,8 +25,9 @@
 #include "physics/physics.hpp"
 #include "utils/profiler.hpp"
 
+#include <ISceneManager.h>
+#include <IVideoDriver.h>
 
-    
 void FixedPipelineRenderer::onLoadWorld()
 {
     
@@ -85,6 +86,8 @@ void FixedPipelineRenderer::render(float dt, bool is_loading)
     for(unsigned int i=0; i<Camera::getNumCameras(); i++)
     {
         Camera *camera = Camera::getCamera(i);
+        irr_driver->getSceneManager()->setActiveCamera(
+            camera->getCameraSceneNode());
         std::ostringstream oss;
         oss << "renderPlayerView() for kart " << i;
 

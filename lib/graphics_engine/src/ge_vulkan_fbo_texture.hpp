@@ -16,7 +16,8 @@ private:
     VkFramebuffer m_rtt_frame_buffer;
 public:
     // ------------------------------------------------------------------------
-    GEVulkanFBOTexture(const core::dimension2d<u32>& size, bool create_depth);
+    GEVulkanFBOTexture(GEVulkanDriver* vk, const core::dimension2d<u32>& size,
+                       bool create_depth);
     // ------------------------------------------------------------------------
     virtual ~GEVulkanFBOTexture();
     // ------------------------------------------------------------------------
@@ -37,8 +38,6 @@ public:
     // ------------------------------------------------------------------------
     virtual u64 getTextureHandler() const
                                   { return (u64)(m_image_view.get()->load()); }
-    // ------------------------------------------------------------------------
-    virtual unsigned int getTextureSize() const      { return m_texture_size; }
     // ------------------------------------------------------------------------
     virtual void reload()                                                    {}
     // ------------------------------------------------------------------------

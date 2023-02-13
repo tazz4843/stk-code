@@ -42,7 +42,7 @@ class CachedCharacteristic;
 class CombinedCharacteristic;
 class KartModel;
 class Material;
-class RenderInfo;
+namespace GE { class GERenderInfo; }
 class XMLNode;
 
 
@@ -234,6 +234,12 @@ public:
     bool operator<(const KartProperties &other) const;
 
     // ------------------------------------------------------------------------
+    void initKartWithDifferentType(const std::string& type)
+    {
+        m_kart_type = type;
+        combineCharacteristics(HANDICAP_NONE);
+    }
+    // ------------------------------------------------------------------------
     /** Returns the characteristics for this kart. */
     const AbstractCharacteristic* getCharacteristic() const;
     // ------------------------------------------------------------------------
@@ -252,7 +258,7 @@ public:
     video::ITexture *getMinimapIcon  () const {return m_minimap_icon;         }
 
     // ------------------------------------------------------------------------
-    KartModel* getKartModelCopy(std::shared_ptr<RenderInfo> ri=nullptr) const;
+    KartModel* getKartModelCopy(std::shared_ptr<GE::GERenderInfo> ri=nullptr) const;
     // ------------------------------------------------------------------------
     /** Returns a pointer to the main KartModel object. This copy
      *  should not be modified, not attachModel be called on it. */

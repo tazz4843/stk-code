@@ -78,6 +78,7 @@ void CentralVideoSettings::init()
             if (GE::getDriver()->getDriverType() == video::EDT_VULKAN)
             {
                 hasTextureCompression = GEVulkanFeatures::supportsS3TCBC3() ||
+                    GEVulkanFeatures::supportsBPTCBC7() ||
                     GEVulkanFeatures::supportsASTC4x4();
             }
             return;
@@ -497,6 +498,12 @@ bool CentralVideoSettings::isARBInstancedArraysUsable() const
 bool CentralVideoSettings::isARBTextureBufferObjectUsable() const
 {
     return hasTextureBufferObject;
+}
+
+bool CentralVideoSettings::supportsColorization() const
+{
+    return isGLSL() || GE::getDriver()->getDriverType() == video::EDT_VULKAN ||
+        GE::getDriver()->getDriverType() == video::EDT_OGLES2;
 }
 
 #endif   // !SERVER_ONLY

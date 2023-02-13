@@ -17,9 +17,11 @@ extern "C"
 }
 
 #include <cassert>
+#include <cstdio>
 #include <IAttributes.h>
 #include <IImageLoader.h>
 #include <limits>
+#include <stdexcept>
 
 namespace GE
 {
@@ -29,7 +31,7 @@ GEVulkanTexture::GEVulkanTexture(const std::string& path,
                  m_locked_data(NULL),
                  m_vulkan_device(getVKDriver()->getDevice()),
                  m_image(VK_NULL_HANDLE), m_vma_allocation(VK_NULL_HANDLE),
-                 m_texture_size(0), m_layer_count(1),
+                 m_vma_info(), m_layer_count(1),
                  m_image_view_type(VK_IMAGE_VIEW_TYPE_2D),
                  m_disable_reload(false), m_has_mipmaps(true),
                  m_ondemand_load(false), m_ondemand_loading(false),
@@ -67,6 +69,7 @@ GEVulkanTexture::GEVulkanTexture(const std::string& path,
 
     m_size_lock.lock();
     m_image_view_lock.lock();
+    m_thread_loading_lock.lock();
     GEVulkanCommandLoader::addMultiThreadingCommand(
         std::bind(&GEVulkanTexture::reloadInternal, this));
 }   // GEVulkanTexture
@@ -77,7 +80,7 @@ GEVulkanTexture::GEVulkanTexture(video::IImage* img, const std::string& name)
                  m_locked_data(NULL),
                  m_vulkan_device(getVKDriver()->getDevice()),
                  m_image(VK_NULL_HANDLE), m_vma_allocation(VK_NULL_HANDLE),
-                 m_texture_size(0), m_layer_count(1),
+                 m_vma_info(), m_layer_count(1),
                  m_image_view_type(VK_IMAGE_VIEW_TYPE_2D),
                  m_disable_reload(true), m_has_mipmaps(true),
                  m_ondemand_load(false), m_ondemand_loading(false),
@@ -105,7 +108,7 @@ GEVulkanTexture::GEVulkanTexture(const std::string& name, unsigned int size,
            : video::ITexture(name.c_str()), m_image_mani(nullptr),
              m_locked_data(NULL), m_vulkan_device(getVKDriver()->getDevice()),
              m_image(VK_NULL_HANDLE), m_vma_allocation(VK_NULL_HANDLE),
-             m_texture_size(0), m_layer_count(1),
+             m_vma_info(), m_layer_count(1),
              m_image_view_type(VK_IMAGE_VIEW_TYPE_2D), m_disable_reload(true),
              m_has_mipmaps(true), m_ondemand_load(false),
              m_ondemand_loading(false), m_internal_format(single_channel ?
@@ -129,7 +132,8 @@ GEVulkanTexture::GEVulkanTexture(const std::string& name, unsigned int size,
 // ----------------------------------------------------------------------------
 GEVulkanTexture::~GEVulkanTexture()
 {
-    waitImageView();
+    m_thread_loading_lock.lock();
+    m_thread_loading_lock.unlock();
 
     if (m_image_view || m_image != VK_NULL_HANDLE ||
         m_vma_allocation != VK_NULL_HANDLE)
@@ -178,6 +182,8 @@ bool GEVulkanTexture::createTextureImage(uint8_t* texture_data,
         }
         else
         {
+            m_internal_format = (isSingleChannel() ?
+                VK_FORMAT_R8_UNORM : VK_FORMAT_R8G8B8A8_UNORM);
             mipmap_generator = new GEMipmapGenerator(texture_data, channels,
                 m_size, normal_map);
         }
@@ -188,7 +194,7 @@ bool GEVulkanTexture::createTextureImage(uint8_t* texture_data,
     VkBuffer staging_buffer;
     VmaAllocation staging_buffer_allocation;
     VmaAllocationCreateInfo staging_buffer_create_info = {};
-    staging_buffer_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+    staging_buffer_create_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
     staging_buffer_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     staging_buffer_create_info.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
@@ -284,10 +290,11 @@ bool GEVulkanTexture::createImage(VkImageUsageFlags usage)
         m_image_view_type == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY)
         image_info.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
+    m_vma_info = {};
     VmaAllocationCreateInfo alloc_info = {};
-    alloc_info.usage = VMA_MEMORY_USAGE_AUTO;
+    alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     VkResult result = vmaCreateImage(m_vk->getVmaAllocator(), &image_info,
-        &alloc_info, &m_image, &m_vma_allocation, NULL);
+        &alloc_info, &m_image, &m_vma_allocation, &m_vma_info);
 
     if (result != VK_SUCCESS)
         return false;
@@ -431,7 +438,7 @@ bool GEVulkanTexture::createImageView(VkImageAspectFlags aspect_flags)
     }
 
     auto image_view = std::make_shared<std::atomic<VkImageView> >();
-    VkImageView view_ptr = NULL;
+    VkImageView view_ptr = VK_NULL_HANDLE;
     VkResult result = vkCreateImageView(m_vulkan_device, &view_info, NULL,
         &view_ptr);
     if (result == VK_SUCCESS)
@@ -444,7 +451,11 @@ bool GEVulkanTexture::createImageView(VkImageAspectFlags aspect_flags)
         m_ondemand_loading.store(false);
         return true;
     }
-    return false;
+    else
+    {
+        m_ondemand_loading.store(false);
+        return false;
+    }
 }   // createImageView
 
 // ----------------------------------------------------------------------------
@@ -461,6 +472,7 @@ void GEVulkanTexture::clearVulkanData()
         vmaDestroyImage(m_vk->getVmaAllocator(), m_image, m_vma_allocation);
         m_image = VK_NULL_HANDLE;
         m_vma_allocation = VK_NULL_HANDLE;
+        m_vma_info = {};
     }
 }   // clearVulkanData
 
@@ -479,8 +491,13 @@ void GEVulkanTexture::reloadInternal()
             NULL, &m_size);
         if (texture_image == NULL)
         {
-            throw std::runtime_error(
-                "Missing texture_image in getResizedImageFullPath");
+            printf("Missing texture_image in getResizedImageFullPath when "
+                "reloadInternal during ondemand loading for %s\n",
+                m_full_path.c_str());
+            m_size_lock.unlock();
+            m_image_view_lock.unlock();
+            m_thread_loading_lock.unlock();
+            return;
         }
     }
     else
@@ -508,16 +525,19 @@ void GEVulkanTexture::reloadInternal()
 
     texture_image->unlock();
     texture_image->drop();
+    m_thread_loading_lock.unlock();
 }   // reloadInternal
 
 // ----------------------------------------------------------------------------
 void GEVulkanTexture::upload(uint8_t* data, bool generate_hq_mipmap)
 {
     if (!createTextureImage(data, generate_hq_mipmap))
+    {
+        m_ondemand_loading.store(false);
         return;
+    }
     if (!createImageView(VK_IMAGE_ASPECT_COLOR_BIT))
         return;
-    m_texture_size = m_size.Width * m_size.Height * (isSingleChannel() ? 1 : 4);
 }   // upload
 
 // ----------------------------------------------------------------------------
@@ -548,7 +568,7 @@ void* GEVulkanTexture::lock(video::E_TEXTURE_LOCK_MODE mode, u32 mipmap_level)
 // ----------------------------------------------------------------------------
 uint8_t* GEVulkanTexture::getTextureData()
 {
-    if (m_internal_format != VK_FORMAT_R8G8B8A8_UNORM ||
+    if (m_internal_format != VK_FORMAT_R8G8B8A8_UNORM &&
         m_internal_format != VK_FORMAT_R8_UNORM)
     {
         if (m_full_path.empty())
@@ -636,7 +656,7 @@ void GEVulkanTexture::updateTexture(void* data, video::ECOLOR_FORMAT format,
     VkBuffer staging_buffer;
     VmaAllocation staging_buffer_allocation;
     VmaAllocationCreateInfo staging_buffer_create_info = {};
-    staging_buffer_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+    staging_buffer_create_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
     staging_buffer_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     staging_buffer_create_info.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     if (isSingleChannel())
@@ -806,8 +826,18 @@ void GEVulkanTexture::bgraConversion(uint8_t* img_data)
 //-----------------------------------------------------------------------------
 void GEVulkanTexture::reload()
 {
-    if (!waitImageView())
-        return;
+    // Copied from waitImageView
+    if (!m_ondemand_load)
+    {
+        m_image_view_lock.lock();
+        m_image_view_lock.unlock();
+    }
+    else
+    {
+        bool is_currently_loading = m_ondemand_loading.load();
+        if (is_currently_loading || m_image == VK_NULL_HANDLE)
+            return;
+    }
 
     if (m_image_view || m_image != VK_NULL_HANDLE ||
         m_vma_allocation != VK_NULL_HANDLE)
@@ -822,6 +852,7 @@ void GEVulkanTexture::reload()
     {
         m_size_lock.lock();
         m_image_view_lock.lock();
+        m_thread_loading_lock.lock();
         GEVulkanCommandLoader::addMultiThreadingCommand(
             std::bind(&GEVulkanTexture::reloadInternal, this));
     }
@@ -849,9 +880,10 @@ std::shared_ptr<std::atomic<VkImageView> > GEVulkanTexture::getImageViewLive() c
         else
         {
             GEVulkanTexture* tex = const_cast<GEVulkanTexture*>(this);
+            tex->m_thread_loading_lock.lock();
+            tex->m_ondemand_loading.store(true);
             GEVulkanCommandLoader::addMultiThreadingCommand(
                 std::bind(&GEVulkanTexture::reloadInternal, tex));
-            m_ondemand_loading.store(true);
             return m_placeholder_view;
         }
     }

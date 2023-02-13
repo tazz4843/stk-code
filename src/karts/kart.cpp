@@ -91,6 +91,7 @@
 #include "utils/vs.hpp"
 
 #include <ICameraSceneNode.h>
+#include <IDummyTransformationSceneNode.h>
 #include <ISceneManager.h>
 
 #include <algorithm> // for min and max
@@ -112,7 +113,7 @@
  */
 Kart::Kart (const std::string& ident, unsigned int world_kart_id,
             int position, const btTransform& init_transform,
-            HandicapLevel handicap, std::shared_ptr<RenderInfo> ri)
+            HandicapLevel handicap, std::shared_ptr<GE::GERenderInfo> ri)
      : AbstractKart(ident, world_kart_id, position, init_transform,
              handicap, ri)
 
@@ -223,9 +224,10 @@ void Kart::initSound()
 // ----------------------------------------------------------------------------
 void Kart::changeKart(const std::string& new_ident,
                       HandicapLevel handicap,
-                      std::shared_ptr<RenderInfo> ri)
+                      std::shared_ptr<GE::GERenderInfo> ri,
+                      const KartData& kart_data)
 {
-    AbstractKart::changeKart(new_ident, handicap, ri);
+    AbstractKart::changeKart(new_ident, handicap, ri, kart_data);
     m_kart_model->setKart(this);
 
     scene::ISceneNode* old_node = m_node;
@@ -3005,13 +3007,13 @@ void Kart::loadData(RaceManager::KartType type, bool is_animated_model)
     m_skidmarks = nullptr;
     m_shadow = nullptr;
     if (!GUIEngine::isNoGraphics() &&
-        m_kart_properties->getSkidEnabled() && CVS->isGLSL())
+        m_kart_properties->getSkidEnabled())
     {
         m_skidmarks.reset(new SkidMarks(*this));
     }
 
     if (!GUIEngine::isNoGraphics() &&
-        CVS->isGLSL() && !CVS->isShadowEnabled() && m_kart_properties
+        (!CVS->isGLSL() || !CVS->isShadowEnabled()) && m_kart_properties
         ->getShadowMaterial()->getSamplerPath(0) != "unicolor_white")
     {
         m_shadow.reset(new Shadow(m_kart_properties->getShadowMaterial(),

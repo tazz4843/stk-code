@@ -15,6 +15,7 @@
 #include <array>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -23,8 +24,11 @@ using namespace video;
 
 namespace GE
 {
-    class GEVulkanFBOTexture;
+    class GESPM;
     class GEVulkanDepthTexture;
+    class GEVulkanDrawCall;
+    class GEVulkanDynamicSPMBuffer;
+    class GEVulkanFBOTexture;
     class GEVulkanMeshCache;
     class GEVulkanTextureDescriptor;
     enum GEVulkanSampler : unsigned
@@ -324,7 +328,7 @@ namespace GE
         video::ITexture* getTransparentTexture() const
                                                { return m_transparent_texture; }
         void getRotatedRect2D(VkRect2D* rect);
-        void getRotatedViewport(VkViewport* vp);
+        void getRotatedViewport(VkViewport* vp, bool handle_rtt);
         const core::matrix4& getPreRotationMatrix()
                                                { return m_pre_rotation_matrix; }
         virtual void pauseRendering();
@@ -337,6 +341,7 @@ namespace GE
             destroySwapChainRelated(false/*handle_surface*/);
             createSwapChainRelated(false/*handle_surface*/);
         }
+        void updateRenderScale(float value);
         uint32_t getGraphicsFamily() const         { return m_graphics_family; }
         unsigned getGraphicsQueueCount() const
                                               { return m_graphics_queue_count; }
@@ -353,8 +358,20 @@ namespace GE
         GEVulkanTextureDescriptor* getMeshTextureDescriptor() const
                                            { return m_mesh_texture_descriptor; }
         GEVulkanFBOTexture* getRTTTexture() const      { return m_rtt_texture; }
+        GEVulkanFBOTexture* getSeparateRTTTexture() const
+                                              { return m_separate_rtt_texture; }
         void handleDeletedTextures();
         void addRTTPolyCount(unsigned count)       { m_rtt_polycount += count; }
+        SDL_Window* getSDLWindow() const                    { return m_window; }
+        void clearDrawCallsCache();
+        void addDrawCallToCache(std::unique_ptr<GEVulkanDrawCall>& dc);
+        std::unique_ptr<GEVulkanDrawCall> getDrawCallFromCache();
+        GESPM* getBillboardQuad() const             { return m_billboard_quad; }
+        int getCurrentBufferIdx() const         { return m_current_buffer_idx; }
+        void addDynamicSPMBuffer(GEVulkanDynamicSPMBuffer* buffer)
+                                       { m_dynamic_spm_buffers.insert(buffer); }
+        void removeDynamicSPMBuffer(GEVulkanDynamicSPMBuffer* buffer)
+                                        { m_dynamic_spm_buffers.erase(buffer); }
     private:
         struct SwapChainSupportDetails
         {
@@ -493,7 +510,14 @@ namespace GE
         GEVulkanDepthTexture* m_depth_texture;
         GEVulkanTextureDescriptor* m_mesh_texture_descriptor;
         GEVulkanFBOTexture* m_rtt_texture;
+        GEVulkanFBOTexture* m_prev_rtt_texture;
+        GEVulkanFBOTexture* m_separate_rtt_texture;
         u32 m_rtt_polycount;
+
+        std::vector<std::unique_ptr<GEVulkanDrawCall> > m_draw_calls_cache;
+        GESPM* m_billboard_quad;
+        int m_current_buffer_idx;
+        std::set<GEVulkanDynamicSPMBuffer*> m_dynamic_spm_buffers;
 
         void createInstance(SDL_Window* window);
         void findPhysicalDevice();
@@ -517,6 +541,7 @@ namespace GE
         void destroySwapChainRelated(bool handle_surface);
         void createSwapChainRelated(bool handle_surface);
         void buildCommandBuffers();
+        void createBillboardQuad();
     };
 
 }

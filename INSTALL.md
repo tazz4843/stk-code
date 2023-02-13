@@ -79,6 +79,10 @@ To build the in-game recorder for STK, you have to install
 libopenglrecorder from your distribution, or compile it yourself from [here](https://github.com/Benau/libopenglrecorder).
 Compilation instruction is explained there. If you don't need this feature, pass `-DBUILD_RECORDER=off` to cmake.
 
+### Shaderc for Vulkan support
+
+You need to compile [Shaderc](https://github.com/google/shaderc) for vulkan support in SuperTuxKart if you are not building for Windows or macOS, If you don't need this feature, pass `-DNO_SHADERC=on` to cmake.
+
 ### Compiling
 
 To compile SuperTuxKart, run the following commands inside `stk-code` directory
@@ -137,7 +141,7 @@ location, specify `CMAKE_INSTALL_PREFIX` when running cmake, e.g.:
 
 ## Building SuperTuxKart on Windows
 
-To Build SuperTuxKart on Windows, first you need to install [Python](https://www.python.org/downloads/windows/) for [shaderc](https://github.com/google/shaderc) used by SuperTuxKart, after installing Python (if needed) follow these instructions:
+To Build SuperTuxKart on Windows follow these instructions:
 
 1. Download and install Visual Studio from here: [Visual Studio - Download](https://www.visualstudio.com/downloads/). The free Visual Studio Community edition works fine. Remember to select "Desktop development with C++" in the installer.
 
@@ -150,7 +154,7 @@ Open your file browser and find somewhere you want to put the development versio
 4. If you got the stable version, download the Windows dependencies package from [SuperTuxKart on GitHub - Dependencies Releases](https://github.com/supertuxkart/dependencies/releases), find the stk-code version there and download the `dependencies(arch).zip` as needed and unpack the archive into the `stk-code` directory.
 
 5. If you got the development version go to SuperTuxKart-dev in your file browser, then visit [SuperTuxKart on GitHub - Dependencies latest preview release](https://github.com/supertuxkart/dependencies/releases/tag/preview)
-and unpack the archive into the `stk-code` directory. Download `i686` if you use Win32 generator of MSVC, `x86_64` for x64 and `aarch64` for ARM64.
+and unpack the archive into the `stk-code` directory. Download `i686` if you use Win32 generator of MSVC, `x86_64` for x64, `armv7` for ARM and `aarch64` for ARM64.
 
 6. Download CMake from here: [CMake - download page](https://cmake.org/download/), install it; once CMake is installed, double click on the CMake icon on your desktop, and point it towards your `stk-code` directory in the 'Where is the source code' field, and point 'Where to build the binaries' to a new directory called `build` or `bld` inside the stk-code directory.
 
@@ -180,7 +184,7 @@ Visual Studio 2013| 13
 2. Download a source package from either [SuperTuxKart on GitHub](https://github.com/supertuxkart/stk-code/releases) or [SuperTuxKart.net - Source Control](https://supertuxkart.net/Source_control)
 NOTE: the `stk-code` and `stk-assets` directories **must** be in the same directory, `stk-assets` is not needed if you download the full source tarball `(SuperTuxKart-version-src.tar.xz)`.
 3. Download the Windows dependencies package from [SuperTuxKart on GitHub - Dependencies latest preview release](https://github.com/supertuxkart/dependencies/releases/tag/preview)
-and unpack the archive into the `stk-code` directory. Download `i686` if you use Win32 generator of MSVC, `x86_64` for x64 and `aarch64` for ARM64.
+and unpack the archive into the `stk-code` directory. Download `i686` if you use Win32 generator of MSVC, `x86_64` for x64, `armv7` for ARM and `aarch64` for ARM64.
 4. Download CMake from here: [CMake - download page](https://cmake.org/download/); and install it. Navigate to the `stk-code` directory; and create an directory called "build":
 
     ```cmd
@@ -209,10 +213,10 @@ SuperTuxKart can now be run as `bin\Debug\supertuxkart.exe` or `bin\Release\supe
 3. Download a source package from either [SuperTuxKart on GitHub](https://github.com/supertuxkart/stk-code/releases) or [SuperTuxKart.net - Source Control](https://supertuxkart.net/Source_control)
 NOTE: the `stk-code` and `stk-assets` directories **must** be in the same directory, `stk-assets` is not needed if you download the full source tarball `(SuperTuxKart-version-src.tar.xz)`. Also make sure they lie within the C drive.
 4. Download the Windows dependencies package from [SuperTuxKart on GitHub - Dependencies latest preview release](https://github.com/supertuxkart/dependencies/releases/tag/preview)
-and unpack the archive into the `stk-code` directory. Download `i686` if you compile for Intel / AMD 32-bit Windows, `x86_64` for Intel / AMD 64-bit Windows and `aarch64` for ARM64 Windows.
+and unpack the archive into the `stk-code` directory. Download `i686` if you compile for Intel / AMD 32-bit, `x86_64` for Intel / AMD 64-bit, `armv7` for ARM 32-bit and `aarch64` for ARM 64-bit version of Windows.
 6. Download CMake from here: [CMake - download page](https://cmake.org/download/), install it; once CMake is installed, double click on the CMake icon on your desktop, and point it towards your `stk-code` directory in the 'Where is the source code' field, and point 'Where to build the binaries' to a new directory called `build` inside the stk-code directory.
 7. Press the `Add Entry` button and add the values below:
-* Name: `LLVM_ARCH` Type: `STRING`  Value: `i686`, `x86_64` or `aarch64`
+* Name: `LLVM_ARCH` Type: `STRING`  Value: `i686`, `x86_64`, `armv7` or `aarch64`
 * Name: `LLVM_PREFIX` Type: `STRING`  Value: `C:/llvm-mingw`
 * Name: `CMAKE_MAKE_PROGRAM` Type: `STRING` Value: `C:/llvm-mingw/ninja.exe`
 * Name: `USE_WIIUSE` Type: `BOOL`  Value: `Empty (unchecked)`

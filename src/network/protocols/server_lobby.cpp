@@ -64,7 +64,7 @@
 #include <iostream>
 #include <iterator>
 
-
+int ServerLobby::m_fixed_laps = -1;
 // ========================================================================
 class SubmitRankingRequest : public Online::XMLRequest
 {
@@ -1736,6 +1736,8 @@ NetworkString* ServerLobby::getLoadWorldMessage(
             ServerConfig::m_flag_deactivated_time);
         load_world_message->addUInt16(flag_deactivated_time);
     }
+    for (unsigned i = 0; i < players.size(); i++)
+        players[i]->getKartData().encode(load_world_message);
     return load_world_message;
 }   // getLoadWorldMessage
 
@@ -2065,6 +2067,8 @@ void ServerLobby::finishedLoadingLiveJoinClient(Event* event)
         std::vector<std::shared_ptr<NetworkPlayerProfile> > players =
             getLivePlayers();
         encodePlayers(ns, players);
+        for (unsigned i = 0; i < players.size(); i++)
+            players[i]->getKartData().encode(ns);
     }
 
     m_peers_ready[peer] = false;
@@ -2614,6 +2618,14 @@ void ServerLobby::startSelection(const Event *event)
             Track* t = track_manager->getTrack(*it);
             assert(t);
             m_default_vote->m_num_laps = t->getDefaultNumberOfLaps();
+            if (ServerConfig::m_auto_game_time_ratio > 0.0f)
+            {
+                m_default_vote->m_num_laps =
+                    (uint8_t)(fmaxf(1.0f, (float)t->getDefaultNumberOfLaps() *
+                    ServerConfig::m_auto_game_time_ratio));
+            }
+            else if (m_fixed_laps != -1)
+                m_default_vote->m_num_laps = m_fixed_laps;
             m_default_vote->m_reverse = rg.get(2) == 0;
             break;
         }
@@ -2671,7 +2683,8 @@ void ServerLobby::startSelection(const Event *event)
     ns->addUInt8(LE_START_SELECTION)
        .addFloat(ServerConfig::m_voting_timeout)
        .addUInt8(m_game_setup->isGrandPrixStarted() ? 1 : 0)
-       .addUInt8(ServerConfig::m_auto_game_time_ratio > 0.0f ? 1 : 0)
+       .addUInt8((ServerConfig::m_auto_game_time_ratio > 0.0f ||
+        m_fixed_laps != -1) ? 1 : 0)
        .addUInt8(ServerConfig::m_track_voting ? 1 : 0);
 
     const auto& all_k = m_available_kts.first;
@@ -3832,8 +3845,8 @@ void ServerLobby::handleUnencryptedConnection(std::shared_ptr<STKPeer> peer,
 #else
             core::stringw name = _("Bot");
 #endif
-            if (i > 0)
-                name += core::stringw(" ") + StringUtils::toWString(i);
+            name += core::stringw(" ") + StringUtils::toWString(i + 1);
+            
             m_ai_profiles.push_back(std::make_shared<NetworkPlayerProfile>
                 (peer, name, peer->getHostId(), 0.0f, 0, HANDICAP_NONE,
                 player_count + i, KART_TEAM_NONE, ""));
@@ -4181,6 +4194,8 @@ void ServerLobby::handlePlayerVote(Event* event)
                 (uint8_t)(fmaxf(1.0f, (float)t->getDefaultNumberOfLaps() *
                 ServerConfig::m_auto_game_time_ratio));
         }
+        else if (m_fixed_laps != -1)
+            vote.m_num_laps = m_fixed_laps;
         else if (vote.m_num_laps == 0 || vote.m_num_laps > 20)
             vote.m_num_laps = (uint8_t)3;
         if (!t->reverseAvailable() && vote.m_reverse)
@@ -5337,6 +5352,35 @@ void ServerLobby::setPlayerKarts(const NetworkString& ns, STKPeer* peer) const
             peer->getPlayerProfiles()[i]->setKartName(kart);
         }
     }
+    if (peer->getClientCapabilities().find("real_addon_karts") ==
+        peer->getClientCapabilities().end() || ns.size() == 0)
+        return;
+    for (unsigned i = 0; i < player_count; i++)
+    {
+        KartData kart_data(ns);
+        std::string type = kart_data.m_kart_type;
+        auto& player = peer->getPlayerProfiles()[i];
+        const std::string& kart_id = player->getKartName();
+        if (NetworkConfig::get()->useTuxHitboxAddon() &&
+            StringUtils::startsWith(kart_id, "addon_") &&
+            kart_properties_manager->hasKartTypeCharacteristic(type))
+        {
+            const KartProperties* real_addon =
+                kart_properties_manager->getKart(kart_id);
+            if (ServerConfig::m_real_addon_karts && real_addon)
+            {
+                kart_data = KartData(real_addon);
+            }
+            else
+            {
+                const KartProperties* tux_kp =
+                    kart_properties_manager->getKart("tux");
+                kart_data = KartData(tux_kp);
+                kart_data.m_kart_type = type;
+            }
+            player->setKartData(kart_data);
+        }
+    }
 }   // setPlayerKarts
 
 //-----------------------------------------------------------------------------
@@ -5368,6 +5412,9 @@ void ServerLobby::handleKartInfo(Event* event)
         .addUInt32(rki.getOnlineId()).addUInt8(rki.getHandicap())
         .addUInt8((uint8_t)rki.getLocalPlayerId())
         .encodeString(rki.getKartName()).encodeString(rki.getCountryCode());
+    if (peer->getClientCapabilities().find("real_addon_karts") !=
+        peer->getClientCapabilities().end())
+        rki.getKartData().encode(ns);
     peer->sendPacket(ns, true/*reliable*/);
     delete ns;
 }   // handleKartInfo

@@ -8,6 +8,14 @@
 #include <string>
 #include <unordered_set>
 
+namespace irr
+{
+    namespace scene
+    {
+        class IMesh; class IAnimatedMesh;
+    }
+}
+
 namespace GE
 {
 class GEVulkanDriver;
@@ -16,7 +24,10 @@ struct GEConfig
 bool m_disable_npot_texture;
 bool m_convert_irrlicht_mesh;
 bool m_texture_compression;
+bool m_fullscreen_desktop;
+bool m_enable_draw_call_cache;
 std::unordered_set<std::string> m_ondemand_load_texture_paths;
+float m_render_scale;
 };
 
 void setVideoDriver(irr::video::IVideoDriver* driver);
@@ -44,6 +55,7 @@ inline int get4x4CompressedTextureSize(int width, int height)
     int blocksize = 4 * 4;
     return blockcount * blocksize;
 }
+irr::scene::IAnimatedMesh* convertIrrlichtMeshToSPM(irr::scene::IMesh* mesh);
 
 }
 #endif

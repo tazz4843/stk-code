@@ -48,6 +48,7 @@
 #include "IMeshManipulator.h"
 #include <algorithm>
 #include <ge_animation.hpp>
+#include <ge_render_info.hpp>
 #include <ge_spm.hpp>
 
 #define SKELETON_DEBUG 0
@@ -318,7 +319,7 @@ KartModel::~KartModel()
  *  It is also marked not to be a master copy, so attachModel can be called
  *  for this instance.
  */
-KartModel* KartModel::makeCopy(std::shared_ptr<RenderInfo> ri)
+KartModel* KartModel::makeCopy(std::shared_ptr<GE::GERenderInfo> ri)
 {
     // Make sure that we are copying from a master objects, and
     // that there is indeed no animated node defined here ...
@@ -451,7 +452,6 @@ scene::ISceneNode* KartModel::attachModel(bool animated_models, bool human_playe
         m_wheel_graphics_radius[i] = 0.5f*(wheel_max.getY() - wheel_min.getY());
 
         m_wheel_node[i]->grab();
-        ((scene::IMeshSceneNode *) m_wheel_node[i])->setReadOnlyMaterials(true);
 #ifdef DEBUG
         std::string debug_name = m_wheel_filename[i]+" (wheel)";
         m_wheel_node[i]->setName(debug_name.c_str());
@@ -593,20 +593,23 @@ bool KartModel::loadModels(const KartProperties &kart_properties)
     Vec3 kart_max = m_mesh->getMax();
 #ifndef SERVER_ONLY
     // Test if kart model support colorization
-    if (CVS->isGLSL())
+    for (u32 i = 0; i < m_mesh->getMeshBufferCount(); i++)
     {
-        for (u32 i = 0; i < m_mesh->getMeshBufferCount(); i++)
+        SP::SPMeshBuffer* spmb =
+            dynamic_cast<SP::SPMeshBuffer*>(m_mesh->getMeshBuffer(i));
+        if (!spmb)
         {
-            SP::SPMeshBuffer* mb =
-                static_cast<SP::SPMeshBuffer*>(m_mesh->getMeshBuffer(i));
-            // Pre-upload gl meshes and textures for kart screen
-            mb->uploadGLMesh();
-            std::vector<Material*> mbs = mb->getAllSTKMaterials();
-            for (Material* m : mbs)
-            {
-                m_support_colorization =
-                    m_support_colorization || m->isColorizable();
-            }
+            m_support_colorization = m_support_colorization ||
+                m_mesh->getMeshBuffer(i)->getMaterial().isColorizable();
+            continue;
+        }
+        // Pre-upload gl meshes and textures for kart screen
+        spmb->uploadGLMesh();
+        std::vector<Material*> mbs = spmb->getAllSTKMaterials();
+        for (Material* m : mbs)
+        {
+            m_support_colorization =
+                m_support_colorization || m->isColorizable();
         }
     }
 #endif
@@ -1257,9 +1260,11 @@ void KartModel::resetVisualWheelPosition()
 }   // resetVisualSuspension
 
 //-----------------------------------------------------------------------------
-std::shared_ptr<RenderInfo> KartModel::getRenderInfo()
+std::shared_ptr<GE::GERenderInfo> KartModel::getRenderInfo()
 {
-    return m_support_colorization ? m_render_info : NULL;
+    return m_support_colorization ||
+        (m_render_info && m_render_info->isTransparent()) ?
+        m_render_info : NULL;
 }   // getRenderInfo
 
 //-----------------------------------------------------------------------------

@@ -28,7 +28,6 @@ class MoltenVK;
 	class CIrrDeviceSDL : public CIrrDeviceStub, video::IImagePresenter
 	{
 	public:
-
 		//! constructor
 		CIrrDeviceSDL(const SIrrlichtCreationParameters& param);
 
@@ -115,7 +114,9 @@ class MoltenVK;
 
 		SDL_Window* getWindow() const { return Window; }
 
+#ifdef IOS_STK
 		const SDL_SysWMinfo& getWMInfo() const { return Info; }
+#endif
 
 		virtual s32 getTopPadding();
 
@@ -144,6 +145,7 @@ class MoltenVK;
 		virtual bool isGyroscopeAvailable();
 
 		virtual void resetPaused() { clearAllTouchIds(); }
+		void handleNewSize(u32 width, u32 height);
 
 		//! Implementation of the linux cursor control
 		class CCursorControl : public gui::ICursorControl
@@ -330,7 +332,7 @@ class MoltenVK;
 		MoltenVK* m_moltenvk;
 #endif
 		void createGUIAndVulkanScene();
-		void updateNativeScale();
+		void updateNativeScale(u32* saving_width = NULL, u32* saving_height = NULL);
 	};
 
 } // end namespace irr

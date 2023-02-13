@@ -248,9 +248,9 @@ void GEVulkan2dRenderer::createGraphicsPipeline()
 // ----------------------------------------------------------------------------
 void GEVulkan2dRenderer::createTrisBuffers()
 {
-    g_tris_buffer = new GEVulkanDynamicBuffer(GVDBT_SYSTEM_RAM,
+    g_tris_buffer = new GEVulkanDynamicBuffer(
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        12000);
+        12000, GEVulkanDriver::getMaxFrameInFlight(), 0);
 }   // createTrisBuffers
 
 // ----------------------------------------------------------------------------
@@ -309,7 +309,7 @@ void GEVulkan2dRenderer::render()
     vp.height = g_vk->getViewPort().getHeight();
     vp.minDepth = 0;
     vp.maxDepth = 1.0f;
-    g_vk->getRotatedViewport(&vp);
+    g_vk->getRotatedViewport(&vp, false/*handle_rtt*/);
     vkCmdSetViewport(g_vk->getCurrentCommandBuffer(), 0, 1, &vp);
 
     if (GEVulkanFeatures::supportsBindTexturesAtOnce())

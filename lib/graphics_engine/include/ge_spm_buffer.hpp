@@ -9,24 +9,17 @@
 #include "ge_vma.hpp"
 #include "vulkan_wrapper.h"
 
-class B3DMeshLoader;
-class SPMeshLoader;
-
 namespace GE
 {
-class GEVulkanSceneManager;
-
 class GESPMBuffer : public irr::scene::IMeshBuffer
 {
-friend class GEVulkanSceneManager;
-friend class ::B3DMeshLoader;
-friend class ::SPMeshLoader;
-private:
+protected:
     irr::video::SMaterial m_material;
 
     std::vector<irr::video::S3DVertexSkinnedMesh> m_vertices;
 
     std::vector<irr::u16> m_indices;
+private:
 
     irr::core::aabbox3d<irr::f32> m_bounding_box;
 
@@ -59,10 +52,8 @@ public:
                                                          { return m_material; }
     // ------------------------------------------------------------------------
     virtual irr::video::SMaterial& getMaterial()         { return m_material; }
-
     // ------------------------------------------------------------------------
-    virtual const void* getVertices() const
-                                                  { return m_vertices.data(); }
+    virtual const void* getVertices() const       { return m_vertices.data(); }
     // ------------------------------------------------------------------------
     virtual void* getVertices()                   { return m_vertices.data(); }
     // ------------------------------------------------------------------------
@@ -116,6 +107,8 @@ public:
         return unused;
     }
     // ------------------------------------------------------------------------
+    virtual void setNormal(irr::u32 i, const irr::core::vector3df& normal);
+    // ------------------------------------------------------------------------
     virtual const irr::core::vector2df& getTCoords(irr::u32 i) const
     {
         static irr::core::vector2df unused;
@@ -127,6 +120,8 @@ public:
         static irr::core::vector2df unused;
         return unused;
     }
+    // ------------------------------------------------------------------------
+    virtual void setTCoords(irr::u32 i, const irr::core::vector2df& tcoords);
     // ------------------------------------------------------------------------
     virtual irr::scene::E_PRIMITIVE_TYPE getPrimitiveType() const
                                           { return irr::scene::EPT_TRIANGLES; }
@@ -173,20 +168,23 @@ public:
     // ------------------------------------------------------------------------
     void setVBOOffset(size_t offset)                 { m_vbo_offset = offset; }
     // ------------------------------------------------------------------------
-    size_t getVBOOffset() const                        { return m_vbo_offset; }
+    virtual size_t getVBOOffset() const                { return m_vbo_offset; }
     // ------------------------------------------------------------------------
     void setIBOOffset(size_t offset)                 { m_ibo_offset = offset; }
     // ------------------------------------------------------------------------
-    size_t getIBOOffset() const                        { return m_ibo_offset; }
+    virtual size_t getIBOOffset() const                { return m_ibo_offset; }
     // ------------------------------------------------------------------------
     bool hasSkinning() const                         { return m_has_skinning; }
     // ------------------------------------------------------------------------
-    void bindVertexIndexBuffer(VkCommandBuffer cmd)
+    void setHasSkinning(bool val)                     { m_has_skinning = val; }
+    // ------------------------------------------------------------------------
+    virtual void bindVertexIndexBuffer(VkCommandBuffer cmd)
     {
+        VkBuffer buffer = getVkBuffer();
         std::array<VkBuffer, 2> vertex_buffer =
         {{
-            m_buffer,
-            m_buffer
+            buffer,
+            buffer
         }};
         std::array<VkDeviceSize, 2> offsets =
         {{
@@ -195,16 +193,23 @@ public:
         }};
         vkCmdBindVertexBuffers(cmd, 0, vertex_buffer.size(),
             vertex_buffer.data(), offsets.data());
-        vkCmdBindIndexBuffer(cmd, m_buffer, m_ibo_offset,
+        vkCmdBindIndexBuffer(cmd, buffer, getIBOOffset(),
             VK_INDEX_TYPE_UINT16);
     }
     // ------------------------------------------------------------------------
-    void createVertexIndexBuffer();
+    virtual void createVertexIndexBuffer();
     // ------------------------------------------------------------------------
-    void destroyVertexIndexBuffer();
+    virtual void destroyVertexIndexBuffer();
+    // ------------------------------------------------------------------------
+    std::vector<irr::video::S3DVertexSkinnedMesh>& getVerticesVector()
+                                                         { return m_vertices; }
+    // ------------------------------------------------------------------------
+    std::vector<irr::u16>& getIndicesVector()             { return m_indices; }
+    // ------------------------------------------------------------------------
+    virtual VkBuffer getVkBuffer() const                   { return m_buffer; }
 };
 
-} // end namespace irr
+} // end namespace GE
 
 #endif
 

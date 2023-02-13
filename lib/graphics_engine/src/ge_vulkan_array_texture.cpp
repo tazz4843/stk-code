@@ -12,6 +12,7 @@
 
 #include <IImageLoader.h>
 #include <cassert>
+#include <stdexcept>
 
 namespace GE
 {
@@ -45,10 +46,10 @@ GEVulkanArrayTexture::GEVulkanArrayTexture(const std::vector<io::path>& list,
     m_max_size = m_vk->getDriverAttributes()
         .getAttributeAsDimension2d("MAX_TEXTURE_SIZE");
     m_internal_format = VK_FORMAT_R8G8B8A8_UNORM;
-    m_texture_size = 0;
 
     m_size_lock.lock();
     m_image_view_lock.lock();
+    m_thread_loading_lock.lock();
     GEVulkanCommandLoader::addMultiThreadingCommand(
         [list, image_mani, this]()
         {
@@ -78,10 +79,10 @@ void GEVulkanArrayTexture::reloadInternal(const std::vector<io::path>& list,
     std::vector<video::IImage*> images;
     std::vector<GEMipmapGenerator*> mipmaps;
 
-    VkBuffer staging_buffer = NULL;
+    VkBuffer staging_buffer = VK_NULL_HANDLE;
     VmaAllocation staging_buffer_allocation = NULL;
     VmaAllocationCreateInfo staging_buffer_create_info = {};
-    staging_buffer_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+    staging_buffer_create_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
     staging_buffer_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     staging_buffer_create_info.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
@@ -181,6 +182,8 @@ void GEVulkanArrayTexture::reloadInternal(const std::vector<io::path>& list,
         }
         else
         {
+            if (i == 0)
+                m_internal_format = VK_FORMAT_R8G8B8A8_UNORM;
             mipmap_generator = new GEMipmapGenerator(texture_data, 4, m_size,
                 normal_map);
         }
@@ -251,6 +254,7 @@ destroy:
         vmaDestroyBuffer(m_vk->getVmaAllocator(), staging_buffer,
             staging_buffer_allocation);
     }
+    m_thread_loading_lock.unlock();
 
 }   // reloadInternal
 

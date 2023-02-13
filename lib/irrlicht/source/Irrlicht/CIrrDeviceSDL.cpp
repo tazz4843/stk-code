@@ -58,7 +58,6 @@ extern "C" int Android_disablePadding();
 
 namespace irr
 {
-
 //! constructor
 CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 	: CIrrDeviceStub(param),
@@ -94,7 +93,12 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 #ifndef MOBILE_STK
 	// Prevent fullscreen minimizes when losing focus
 	if (CreationParams.Fullscreen)
-		SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+	{
+		if (!GE::getGEConfig()->m_fullscreen_desktop)
+			SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+		else if (CreationParams.DriverType != video::EDT_VULKAN)
+			SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+	}
 #endif
 
 	u32 init_flags = SDL_INIT_TIMER | SDL_INIT_VIDEO;
@@ -123,9 +127,14 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 		{
 			SDL_VERSION(&Info.version);
 
+#if (defined(IOS_STK) || defined(_IRR_COMPILE_WITH_DIRECT3D_9_)) && !defined(__SWITCH__)
+			// Only iOS or DirectX9 build uses the Info structure
 			// Switch doesn't support GetWindowWMInfo
-#ifndef __SWITCH__
+#ifdef IOS_STK
 			if (!SDL_GetWindowWMInfo(Window, &Info))
+#else
+			if (CreationParams.DriverType == video::EDT_DIRECT3D9 && !SDL_GetWindowWMInfo(Window, &Info))
+#endif
 				return;
 #endif
 #ifdef IOS_STK
@@ -134,7 +143,7 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 #ifdef ANDROID
 			Android_initDisplayCutout(&TopPadding, &BottomPadding, &LeftPadding, &RightPadding, &InitialOrientation);
 #endif
-			core::stringc sdlversion = "SDL Version ";
+			core::stringc sdlversion = "Compiled SDL Version ";
 			sdlversion += Info.version.major;
 			sdlversion += ".";
 			sdlversion += Info.version.minor;
@@ -143,6 +152,17 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 
 			Operator = new COSOperator(sdlversion);
 			os::Printer::log(sdlversion.c_str(), ELL_INFORMATION);
+
+			core::stringc cur_sdlversion = "Current SDL Version ";
+			SDL_version version = {};
+			SDL_GetVersion(&version);
+			cur_sdlversion += version.major;
+			cur_sdlversion += ".";
+			cur_sdlversion += version.minor;
+			cur_sdlversion += ".";
+			cur_sdlversion += version.patch;
+
+			os::Printer::log(cur_sdlversion.c_str(), ELL_INFORMATION);
 #if SDL_VERSION_ATLEAST(2, 0, 9)
 			for (int i = 0; i < SDL_NumSensors(); i++)
 			{
@@ -155,7 +175,7 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 		}
 		else
 			return;
-		updateNativeScale();
+		updateNativeScale(&Width, &Height);
 		Width = (u32)((f32)Width * NativeScaleX);
 		Height = (u32)((f32)Height * NativeScaleY);
 		CreationParams.WindowSize.Width = Width;
@@ -181,7 +201,7 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 }
 
 
-void CIrrDeviceSDL::updateNativeScale()
+void CIrrDeviceSDL::updateNativeScale(u32* saving_width, u32* saving_height)
 {
 	int width, height = 0;
 	SDL_GetWindowSize(Window, &width, &height);
@@ -198,6 +218,10 @@ void CIrrDeviceSDL::updateNativeScale()
 	}
 	NativeScaleX = (f32)real_width / (f32)width;
 	NativeScaleY = (f32)real_height / (f32)height;
+	if (saving_width)
+		*saving_width = width;
+	if (saving_height)
+		*saving_height = height;
 }
 
 
@@ -328,6 +352,29 @@ bool versionCorrect(int major, int minor)
 }
 
 
+// Used in OptionsScreenVideo for live fullscreen toggle for vulkan driver
+extern "C" void update_fullscreen_desktop(int val)
+{
+	GE::GEVulkanDriver* gevk = GE::getVKDriver();
+	if (!gevk || !GE::getGEConfig()->m_fullscreen_desktop)
+		return;
+	SDL_Window* window = gevk->getSDLWindow();
+
+	int prev_width = 0;
+	int prev_height = 0;
+	SDL_GetWindowSize(window, &prev_width, &prev_height);
+
+	if (val != 0)
+		val = SDL_WINDOW_FULLSCREEN_DESKTOP;
+	SDL_SetWindowFullscreen(window, val);
+	if (val == 0)
+	{
+		SDL_SetWindowSize(window, prev_width * 0.8f, prev_height * 0.8f);
+		SDL_RaiseWindow(window);
+	}
+}
+
+
 // Used in OptionsScreenVideo for live updating vertical sync config
 extern "C" void update_swap_interval(int swap_interval)
 {
@@ -394,7 +441,15 @@ bool CIrrDeviceSDL::createWindow()
 #endif
 
 	if (CreationParams.Fullscreen)
-		flags |= SDL_WINDOW_FULLSCREEN;
+	{
+		if (GE::getGEConfig()->m_fullscreen_desktop)
+		{
+			flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+			CreationParams.Fullscreen = false;
+		}
+		else
+			flags |= SDL_WINDOW_FULLSCREEN;
+	}
 
 	if (CreationParams.DriverType == video::EDT_OPENGL ||
 		CreationParams.DriverType == video::EDT_OGLES2)
@@ -651,7 +706,7 @@ void CIrrDeviceSDL::createDriver()
 		{
 			VideoDriver = video::createVulkanDriver(CreationParams, FileSystem, Window, this);
 			// SDL_Vulkan_GetDrawableSize only works after driver is created
-			updateNativeScale();
+			updateNativeScale(&Width, &Height);
 			Width = (u32)((f32)Width * NativeScaleX);
 			Height = (u32)((f32)Height * NativeScaleY);
 		}
@@ -912,17 +967,7 @@ bool CIrrDeviceSDL::run()
 			{
 				if (SDL_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 				{
-					updateNativeScale();
-					u32 new_width = SDL_event.window.data1 * NativeScaleX;
-					u32 new_height = SDL_event.window.data2 * NativeScaleY;
-					if (new_width != Width || new_height != Height)
-					{
-						Width = new_width;
-						Height = new_height;
-						if (VideoDriver)
-							VideoDriver->OnResize(core::dimension2d<u32>(Width, Height));
-						reset_network_body();
-					}
+					handleNewSize(SDL_event.window.data1, SDL_event.window.data2);
 				}
 				else if (SDL_event.window.event == SDL_WINDOWEVENT_MINIMIZED)
 				{
@@ -987,6 +1032,23 @@ bool CIrrDeviceSDL::run()
 
 	return !Close;
 }
+
+
+void CIrrDeviceSDL::handleNewSize(u32 width, u32 height)
+{
+	updateNativeScale();
+	u32 new_width = width * NativeScaleX;
+	u32 new_height = height * NativeScaleY;
+	if (new_width != Width || new_height != Height)
+	{
+		Width = new_width;
+		Height = new_height;
+		if (VideoDriver)
+			VideoDriver->OnResize(core::dimension2d<u32>(Width, Height));
+		reset_network_body();
+	}
+}
+
 
 //! Activate any joysticks, and generate events for them.
 bool CIrrDeviceSDL::activateJoysticks(core::array<SJoystickInfo> & joystickInfo)

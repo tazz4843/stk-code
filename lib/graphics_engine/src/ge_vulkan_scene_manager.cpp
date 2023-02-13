@@ -3,8 +3,6 @@
 #include "../source/Irrlicht/os.h"
 
 #include "ge_main.hpp"
-#include "ge_spm.hpp"
-#include "ge_spm_buffer.hpp"
 #include "ge_vulkan_animated_mesh_scene_node.hpp"
 #include "ge_vulkan_camera_scene_node.hpp"
 #include "ge_vulkan_command_loader.hpp"
@@ -16,7 +14,7 @@
 #include "ge_vulkan_skybox_renderer.hpp"
 #include "ge_vulkan_texture_descriptor.hpp"
 
-#include "mini_glm.hpp"
+#include "IBillboardSceneNode.h"
 #include <sstream>
 
 namespace GE
@@ -76,7 +74,8 @@ irr::scene::IAnimatedMeshSceneNode* GEVulkanSceneManager::addAnimatedMeshSceneNo
     const irr::core::vector3df& scale,
     bool alsoAddIfMeshPointerZero)
 {
-    if (!alsoAddIfMeshPointerZero && (!mesh || !dynamic_cast<GESPM*>(mesh)))
+    if (!alsoAddIfMeshPointerZero && (!mesh ||
+        mesh->getMeshType() != irr::scene::EAMT_SPM))
         return NULL;
 
     if (!parent)
@@ -130,41 +129,7 @@ irr::scene::IMeshSceneNode* GEVulkanSceneManager::addMeshSceneNode(
 
     if (convert_irrlicht_mesh)
     {
-        GESPM* spm = new GESPM();
-        for (unsigned i = 0; i < mesh->getMeshBufferCount(); i++)
-        {
-            std::vector<video::S3DVertexSkinnedMesh> vertices;
-            scene::IMeshBuffer* mb = mesh->getMeshBuffer(i);
-            if (!mb)
-                continue;
-
-            GESPMBuffer* spm_mb = new GESPMBuffer();
-            assert(mb->getVertexType() == video::EVT_STANDARD);
-            video::S3DVertex* v_ptr = (video::S3DVertex*)mb->getVertices();
-            for (unsigned j = 0; j < mb->getVertexCount(); j++)
-            {
-                video::S3DVertexSkinnedMesh sp;
-                sp.m_position = v_ptr[j].Pos;
-                sp.m_normal = MiniGLM::compressVector3(v_ptr[j].Normal);
-                video::SColorf orig(v_ptr[j].Color);
-                video::SColorf diffuse(mb->getMaterial().DiffuseColor);
-                orig.r = orig.r * diffuse.r;
-                orig.g = orig.g * diffuse.g;
-                orig.b = orig.b * diffuse.b;
-                orig.a = orig.a * diffuse.a;
-                sp.m_color = orig.toSColor();
-                sp.m_all_uvs[0] = MiniGLM::toFloat16(v_ptr[j].TCoords.X);
-                sp.m_all_uvs[1] = MiniGLM::toFloat16(v_ptr[j].TCoords.Y);
-                spm_mb->m_vertices.push_back(sp);
-            }
-            uint16_t* idx_ptr = mb->getIndices();
-            std::vector<uint16_t> indices(idx_ptr, idx_ptr + mb->getIndexCount());
-            std::swap(spm_mb->m_indices, indices);
-            spm_mb->m_material = mb->getMaterial();
-            spm_mb->recalculateBoundingBox();
-            spm->m_buffer.push_back(spm_mb);
-        }
-        spm->finalize();
+        irr::scene::IAnimatedMesh* spm = convertIrrlichtMeshToSPM(mesh);
         std::stringstream oss;
         oss << (uint64_t)spm;
         getMeshCache()->addMesh(oss.str().c_str(), spm);
@@ -205,7 +170,7 @@ void GEVulkanSceneManager::drawAllInternal()
 
         it->second->prepare(cam);
         OnRegisterSceneNode();
-        it->second->generate();
+        it->second->generate(static_cast<GEVulkanDriver*>(getVideoDriver()));
     }
 }   // drawAllInternal
 
@@ -214,7 +179,7 @@ void GEVulkanSceneManager::drawAll(irr::u32 flags)
 {
     drawAllInternal();
     GEVulkanDriver* vk = static_cast<GEVulkanDriver*>(getVideoDriver());
-    GEVulkanFBOTexture* rtt = vk->getRTTTexture();
+    GEVulkanFBOTexture* rtt = vk->getSeparateRTTTexture();
     if (!rtt)
         return;
 
@@ -273,6 +238,13 @@ irr::u32 GEVulkanSceneManager::registerNodeForRendering(
         return 1;
     }
 
+    if (node->getType() == irr::scene::ESNT_BILLBOARD ||
+        node->getType() == irr::scene::ESNT_PARTICLE_SYSTEM)
+    {
+        m_draw_calls.at(cam)->addBillboardNode(node, node->getType());
+        return 1;
+    }
+
     if ((node->getType() == irr::scene::ESNT_ANIMATED_MESH &&
         pass != irr::scene::ESNRP_SOLID) ||
         (node->getType() == irr::scene::ESNT_MESH &&
@@ -286,12 +258,18 @@ irr::u32 GEVulkanSceneManager::registerNodeForRendering(
 // ----------------------------------------------------------------------------
 void GEVulkanSceneManager::addDrawCall(GEVulkanCameraSceneNode* cam)
 {
-    m_draw_calls[cam] = std::unique_ptr<GEVulkanDrawCall>(new GEVulkanDrawCall);
+    GEVulkanDriver* gevk = static_cast<GEVulkanDriver*>(getVideoDriver());
+    m_draw_calls[cam] = gevk->getDrawCallFromCache();
 }   // addDrawCall
 
 // ----------------------------------------------------------------------------
 void GEVulkanSceneManager::removeDrawCall(GEVulkanCameraSceneNode* cam)
 {
+    if (m_draw_calls.find(cam) == m_draw_calls.end())
+        return;
+    GEVulkanDriver* gevk = static_cast<GEVulkanDriver*>(getVideoDriver());
+    auto& dc = m_draw_calls.at(cam);
+    gevk->addDrawCallToCache(dc);
     m_draw_calls.erase(cam);
 }   // removeDrawCall
 
